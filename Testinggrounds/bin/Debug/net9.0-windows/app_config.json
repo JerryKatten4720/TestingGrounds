@@ -1,0 +1,15 @@
+{
+  "ShowGrid": true,
+  "ShowHeights": true,
+  "EditorEnabled": true,
+  "FastRendering": true,
+  "LimitCamera": true,
+  "TileWidth": 64,
+  "TileHeight": 32,
+  "BlockStackStep": 32,
+  "MaxStackHeight": 20,
+  "DefaultZoom": 1.6920423537459204,
+  "DefaultMapCols": 40,
+  "DefaultMapRows": 40,
+  "CameraMargin": 200
+}

@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "restore": {
+    "C:\\Users\\antoi\\Documents\\GitHub\\Testinggrounds\\Testinggrounds\\Testinggrounds.csproj": {}
+  },
+  "projects": {
+    "C:\\Users\\antoi\\Documents\\GitHub\\Testinggrounds\\Testinggrounds\\Testinggrounds.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\antoi\\Documents\\GitHub\\Testinggrounds\\Testinggrounds\\Testinggrounds.csproj",
+        "projectName": "Testinggrounds",
+        "projectPath": "C:\\Users\\antoi\\Documents\\GitHub\\Testinggrounds\\Testinggrounds\\Testinggrounds.csproj",
+        "packagesPath": "C:\\Users\\antoi\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\antoi\\Documents\\GitHub\\Testinggrounds\\Testinggrounds\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\antoi\\AppData\\Roaming\\NuGet\\NuGet.Config"
+        ],
+        "originalTargetFrameworks": [
+          "net9.0-windows"
+        ],
+        "sources": {
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net9.0-windows7.0": {
+            "targetAlias": "net9.0-windows",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "10.0.100"
+      },
+      "frameworks": {
+        "net9.0-windows7.0": {
+          "targetAlias": "net9.0-windows",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WPF": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Users\\antoi\\.dotnet\\sdk\\10.0.101/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

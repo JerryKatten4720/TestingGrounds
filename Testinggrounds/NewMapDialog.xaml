@@ -1,0 +1,44 @@
+<Window x:Class="IsometricWPF.Dialogs.NewMapDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="New Map" Height="220" Width="300"
+        Background="#16162a" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner">
+
+    <Window.Resources>
+        <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#aaffffff"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize"   Value="11"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Background"  Value="#2a2a40"/>
+            <Setter Property="Foreground"  Value="#ffffff"/>
+            <Setter Property="BorderBrush" Value="#44ffffff"/>
+            <Setter Property="FontFamily"  Value="Consolas"/>
+            <Setter Property="Padding"     Value="4,3"/>
+            <Setter Property="CaretBrush"  Value="White"/>
+        </Style>
+    </Window.Resources>
+
+    <StackPanel Margin="20">
+        <TextBlock Text="NEW MAP" FontSize="14" FontWeight="Bold"
+                   Foreground="#c8a84b" Margin="0,0,0,18"/>
+
+        <TextBlock Text="Width (columns, max 300)" Margin="0,0,0,4"/>
+        <TextBox x:Name="ColsBox" Text="40" Margin="0,0,0,14"/>
+
+        <TextBlock Text="Height (rows, max 300)" Margin="0,0,0,4"/>
+        <TextBox x:Name="RowsBox" Text="40" Margin="0,0,0,20"/>
+
+        <TextBlock x:Name="ErrorLabel" Foreground="#ff6666" FontSize="10"
+                   Visibility="Collapsed" Margin="0,0,0,8"/>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" Click="Cancel_Click" Width="80" Margin="0,0,8,0"
+                    Style="{StaticResource SmallBtn}"/>
+            <Button Content="Create" Click="Create_Click" Width="80"
+                    Style="{StaticResource SmallBtn}"/>
+        </StackPanel>
+    </StackPanel>
+</Window>

@@ -1,0 +1,84 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFramework>net9.0-windows</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Remove="dirt.png"/>
+        <Resource Include="dirt.png"/>
+        <None Remove="dwellers.json"/>
+        <Resource Include="dwellers.json"/>
+        <None Remove="Assets\dwellers\abraham_washington.png"/>
+        <Resource Include="Assets\dwellers\abraham_washington.png"/>
+        <None Remove="Assets\dwellers\allistair_tenpenny.png"/>
+        <Resource Include="Assets\dwellers\allistair_tenpenny.png"/>
+        <None Remove="Assets\dwellers\amata.png"/>
+        <Resource Include="Assets\dwellers\amata.png"/>
+        <None Remove="Assets\dwellers\bittercup.png"/>
+        <Resource Include="Assets\dwellers\bittercup.png"/>
+        <None Remove="Assets\dwellers\butch.png"/>
+        <Resource Include="Assets\dwellers\butch.png"/>
+        <None Remove="Assets\dwellers\colonel_autumn.png"/>
+        <Resource Include="Assets\dwellers\colonel_autumn.png"/>
+        <None Remove="Assets\dwellers\confessor_cronwell.png"/>
+        <Resource Include="Assets\dwellers\confessor_cronwell.png"/>
+        <None Remove="Assets\dwellers\dr_li.png"/>
+        <Resource Include="Assets\dwellers\dr_li.png"/>
+        <None Remove="Assets\dwellers\ed_the_ghoul.png"/>
+        <Resource Include="Assets\dwellers\ed_the_ghoul.png"/>
+        <None Remove="Assets\dwellers\elder_lyons.png"/>
+        <Resource Include="Assets\dwellers\elder_lyons.png"/>
+        <None Remove="Assets\dwellers\eulogy_jones.png"/>
+        <Resource Include="Assets\dwellers\eulogy_jones.png"/>
+        <None Remove="Assets\dwellers\harkness.png"/>
+        <Resource Include="Assets\dwellers\harkness.png"/>
+        <None Remove="Assets\dwellers\james.png"/>
+        <Resource Include="Assets\dwellers\james.png"/>
+        <None Remove="Assets\dwellers\jericho.png"/>
+        <Resource Include="Assets\dwellers\jericho.png"/>
+        <None Remove="Assets\dwellers\luc_the_human.png"/>
+        <Resource Include="Assets\dwellers\luc_the_human.png"/>
+        <None Remove="Assets\dwellers\lucas_simms.png"/>
+        <Resource Include="Assets\dwellers\lucas_simms.png"/>
+        <None Remove="Assets\dwellers\lucy.png"/>
+        <Resource Include="Assets\dwellers\lucy.png"/>
+        <None Remove="Assets\dwellers\ma_june.png"/>
+        <Resource Include="Assets\dwellers\ma_june.png"/>
+        <None Remove="Assets\dwellers\maximus.png"/>
+        <Resource Include="Assets\dwellers\maximus.png"/>
+        <None Remove="Assets\dwellers\moira_brown.png"/>
+        <Resource Include="Assets\dwellers\moira_brown.png"/>
+        <None Remove="Assets\dwellers\mr_burke.png"/>
+        <Resource Include="Assets\dwellers\mr_burke.png"/>
+        <None Remove="Assets\dwellers\old_longfellow.png"/>
+        <Resource Include="Assets\dwellers\old_longfellow.png"/>
+        <None Remove="Assets\dwellers\overseer_76.png"/>
+        <Resource Include="Assets\dwellers\overseer_76.png"/>
+        <None Remove="Assets\dwellers\piper.png"/>
+        <Resource Include="Assets\dwellers\piper.png"/>
+        <None Remove="Assets\dwellers\preston_garvey.png"/>
+        <Resource Include="Assets\dwellers\preston_garvey.png"/>
+        <None Remove="Assets\dwellers\sarah_lyons.png"/>
+        <Resource Include="Assets\dwellers\sarah_lyons.png"/>
+        <None Remove="Assets\dwellers\scribe_rothchild.png"/>
+        <Resource Include="Assets\dwellers\scribe_rothchild.png"/>
+        <None Remove="Assets\dwellers\scribe_valdez.png"/>
+        <Resource Include="Assets\dwellers\scribe_valdez.png"/>
+        <None Remove="Assets\dwellers\snake_oil_salesman.png"/>
+        <Resource Include="Assets\dwellers\snake_oil_salesman.png"/>
+        <None Remove="Assets\dwellers\star_cross_paladin.png"/>
+        <Resource Include="Assets\dwellers\star_cross_paladin.png"/>
+        <None Remove="Assets\dwellers\the_ghoul.png"/>
+        <Resource Include="Assets\dwellers\the_ghoul.png"/>
+        <None Remove="Assets\dwellers\three_dog.png"/>
+        <Resource Include="Assets\dwellers\three_dog.png"/>
+        <None Remove="Assets\dwellers\white.png"/>
+        <Resource Include="Assets\dwellers\white.png"/>
+    </ItemGroup>
+
+</Project>

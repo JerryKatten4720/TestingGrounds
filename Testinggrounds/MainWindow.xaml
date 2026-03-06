@@ -1,0 +1,302 @@
+<Window x:Class="IsometricWPF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Isometric World Builder" Height="760" Width="1240"
+        Background="#12121c"
+        MouseRightButtonDown="Viewport_MouseRightButtonDown"
+        MouseRightButtonUp="Viewport_MouseRightButtonUp"
+        MouseMove="Viewport_MouseMove"
+        MouseWheel="Viewport_MouseWheel"
+        MouseLeftButtonDown="Viewport_MouseLeftButtonDown"
+        MouseLeave="Viewport_MouseLeave"
+        KeyDown="Window_KeyDown"
+        Focusable="True">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="190"/>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="240"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="44"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ══ TOOLBAR ════════════════════════════════════════════════ -->
+        <Border Grid.ColumnSpan="3" Background="#1e1e30"
+                BorderBrush="#33ffffff" BorderThickness="0,0,0,1">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+
+                <TextBlock Text="⬡  WORLD BUILDER" Foreground="#c8a84b"
+                           FontFamily="Consolas" FontSize="14" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="0,0,20,0"/>
+
+                <Button Content="📄 New"    Click="File_New"    Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button Content="📂 Import" Click="File_Import" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button Content="💾 Export" Click="File_Export" Style="{StaticResource ToolbarBtn}" Margin="0,0,16,0"/>
+
+                <Separator Style="{StaticResource ToolbarSep}"/>
+
+                <Button Content="🗺 Island"   Click="Preset_Island"    Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button Content="☢ Wasteland" Click="Preset_Wasteland" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button Content="⬜ Clear"     Click="Preset_Clear"     Style="{StaticResource ToolbarBtn}" Margin="0,0,16,0"/>
+
+                <Separator Style="{StaticResource ToolbarSep}"/>
+
+                <ToggleButton x:Name="BtnGrid"    Content="Grid [G]"    IsChecked="True" Click="Toggle_Grid"    Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
+                <ToggleButton x:Name="BtnHeights" Content="Heights [H]" IsChecked="True" Click="Toggle_Heights" Style="{StaticResource ToolbarToggle}" Margin="0,0,16,0"/>
+
+                <Separator Style="{StaticResource ToolbarSep}"/>
+
+                <ToggleButton x:Name="BtnEditorMode" Content="✏ Editor [E]" IsChecked="True"
+                              Click="Toggle_EditorMode" Style="{StaticResource ToolbarToggle}" Margin="0,0,16,0"/>
+
+                <Separator Style="{StaticResource ToolbarSep}"/>
+
+                <Button Content="↺ Reset View [R]" Click="Camera_Reset" Style="{StaticResource ToolbarBtn}"/>
+
+                <TextBlock x:Name="CameraLabel" Foreground="#66ffffff" FontFamily="Consolas" FontSize="10"
+                           VerticalAlignment="Center" Margin="16,0,0,0"/>
+
+                <TextBlock x:Name="EditorModeLabel" Text="  ✏ EDITOR"
+                           Foreground="#88ff88" FontFamily="Consolas" FontSize="10" FontWeight="Bold"
+                           VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </StackPanel>
+        </Border>
+
+        <!-- ══ LEFT: PALETTE ══════════════════════════════════════════ -->
+        <Border x:Name="LeftSidePanel" Grid.Row="1" Grid.Column="0"
+                Background="#16162a" BorderBrush="#33ffffff" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Text="PALETTE" Foreground="#c8a84b"
+                           FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="12,10,0,8"/>
+
+                <DockPanel DockPanel.Dock="Top" Margin="12,0,12,8">
+                    <TextBlock Text="h=" Foreground="#66ffffff" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="HeightBrushLabel" Text="0" Foreground="#ffffff" FontFamily="Consolas" FontSize="12"
+                               VerticalAlignment="Center" Margin="2,0,6,0"/>
+                    <Button Content="+" Click="HeightBrush_Inc" Style="{StaticResource SmallBtn}" Width="24" DockPanel.Dock="Right" Margin="2,0,0,0"/>
+                    <Button Content="−" Click="HeightBrush_Dec" Style="{StaticResource SmallBtn}" Width="24" DockPanel.Dock="Right"/>
+                </DockPanel>
+
+                <Button DockPanel.Dock="Top" Content="＋ Add Custom Tile" Click="Palette_AddCustomTile"
+                        Style="{StaticResource ToolbarBtn}" Margin="8,0,8,10" HorizontalAlignment="Stretch"/>
+
+                <!-- Dweller spawn section -->
+                <Border DockPanel.Dock="Top" Background="#1a1a2e" BorderBrush="#33c8a84b"
+                        BorderThickness="1" CornerRadius="4" Margin="8,0,8,8" Padding="8,6">
+                    <StackPanel>
+                        <TextBlock Text="SPAWN DWELLER" Foreground="#c8a84b" FontFamily="Consolas"
+                                   FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                        <ComboBox x:Name="DwellerPicker" FontFamily="Consolas" FontSize="11"
+                                  Background="#2a2a40" Foreground="#ffffff" BorderBrush="#44ffffff"
+                                  Margin="0,0,0,6"/>
+                        <Button Content="Place on map [click tile]" Click="SpawnDweller_Click"
+                                Style="{StaticResource SmallBtn}" HorizontalAlignment="Stretch"/>
+                    </StackPanel>
+                </Border>
+
+                <ScrollViewer DockPanel.Dock="Top" VerticalScrollBarVisibility="Auto">
+                    <StackPanel x:Name="PalettePanel" Margin="8,0,8,8"/>
+                </ScrollViewer>
+            </DockPanel>
+        </Border>
+
+        <!-- ══ CENTER: VIEWPORT ═══════════════════════════════════════ -->
+        <Grid Grid.Row="1" Grid.Column="1" x:Name="ViewportGrid" ClipToBounds="True">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
+                    <GradientStop Color="#1e1e30" Offset="0"/>
+                    <GradientStop Color="#0c0c14" Offset="1"/>
+                </LinearGradientBrush>
+            </Grid.Background>
+
+            <!-- The TransformCanvas hosts everything that pans/zooms -->
+            <Canvas x:Name="TransformCanvas">
+                <Canvas.RenderTransform>
+                    <TransformGroup>
+                        <ScaleTransform x:Name="CameraScale"/>
+                        <TranslateTransform x:Name="CameraPan" X="450" Y="120"/>
+                    </TransformGroup>
+                </Canvas.RenderTransform>
+
+                <!-- DrawingVisualHost for tiles (set from code-behind) -->
+                <Canvas x:Name="TileHostContainer"/>
+
+                <!-- Dweller sprite canvas (above tiles) -->
+                <Canvas x:Name="DwellerCanvas"/>
+
+                <!-- Cursor overlays (always on top) -->
+                <Polygon x:Name="HoverCursor" Stroke="#88ffffff" StrokeThickness="1.5"
+                         Fill="#18ffffff" Visibility="Hidden" IsHitTestVisible="False"
+                         Panel.ZIndex="9000"/>
+                <Polygon x:Name="SelectionCursor" Stroke="#ffd700" StrokeThickness="2.5"
+                         Fill="#44ffd700" Visibility="Hidden" IsHitTestVisible="False"
+                         Panel.ZIndex="9001"/>
+
+                <!-- Move-target indicator when a dweller is selected -->
+                <Polygon x:Name="MoveCursor" Stroke="#88ff88" StrokeThickness="1.5"
+                         Fill="#2288ff88" Visibility="Hidden" IsHitTestVisible="False"
+                         Panel.ZIndex="8999"/>
+            </Canvas>
+
+            <!-- Mini-map overlay -->
+            <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                    Margin="0,0,10,10" Width="160" Height="110"
+                    Background="#cc0d0d1a" CornerRadius="6" BorderBrush="#44c8a84b" BorderThickness="1">
+                <Grid ClipToBounds="True">
+                    <Canvas x:Name="MiniMap"/>
+                    <Rectangle x:Name="MiniMapViewport" Stroke="#ffd700" StrokeThickness="1"
+                               Fill="#22ffd700" HorizontalAlignment="Left" VerticalAlignment="Top"
+                               IsHitTestVisible="False"/>
+                    <TextBlock Text="MINIMAP" Foreground="#33c8a84b" FontFamily="Consolas" FontSize="9"
+                               FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,3"/>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- ══ RIGHT: SIDE PANEL (INSPECTOR & ASSETS) ════════════════ -->
+        <Border x:Name="RightSidePanel" Grid.Row="1" Grid.Column="2"
+                Background="#16162a" BorderBrush="#33ffffff" BorderThickness="1,0,0,0">
+            <TabControl Background="Transparent" BorderThickness="0" Padding="0">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="#66ffffff"/>
+                        <Setter Property="FontFamily" Value="Consolas"/>
+                        <Setter Property="FontSize" Value="10"/>
+                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="TabItem">
+                                    <Border x:Name="Border" Background="{TemplateBinding Background}" 
+                                            BorderBrush="#33ffffff" BorderThickness="0,0,0,1">
+                                        <ContentPresenter ContentSource="Header" Margin="{TemplateBinding Padding}"/>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="Border" Property="Background" Value="#1e1e30"/>
+                                            <Setter Property="Foreground" Value="#c8a84b"/>
+                                            <Setter TargetName="Border" Property="BorderBrush" Value="#c8a84b"/>
+                                            <Setter TargetName="Border" Property="BorderThickness" Value="0,0,0,2"/>
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </TabControl.Resources>
+
+                <TabItem Header="INSPECTOR">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="14">
+
+                            <TextBlock Text="INSPECTOR" Foreground="#c8a84b" FontFamily="Consolas"
+                                       FontSize="11" FontWeight="Bold" Margin="0,8,0,12"/>
+
+                            <Border Background="#1e1e30" CornerRadius="5" Padding="10,8" Margin="0,0,0,14">
+                                <StackPanel>
+                                    <TextBlock x:Name="InspectorCoords" Text="No tile selected"
+                                               Foreground="#aaffffff" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
+                                    <TextBlock x:Name="InspectorType" Foreground="#c8a84b"
+                                               FontFamily="Consolas" FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Tile height -->
+                            <TextBlock Text="HEIGHT" Foreground="#66ffffff" FontFamily="Consolas"
+                                       FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                                <Button Content="−" Click="Inspector_HeightDec" Style="{StaticResource SmallBtn}" Width="32"/>
+                                <TextBlock x:Name="InspectorHeight" Text=" 0 " Foreground="#ffffff"
+                                           FontFamily="Consolas" FontSize="14" VerticalAlignment="Center" Margin="6,0"/>
+                                <Button Content="+" Click="Inspector_HeightInc" Style="{StaticResource SmallBtn}" Width="32"/>
+                            </StackPanel>
+
+                            <!-- Texture scope -->
+                            <TextBlock Text="TEXTURES" Foreground="#66ffffff" FontFamily="Consolas"
+                                       FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <ToggleButton x:Name="BtnScopeType" Content="All of type" IsChecked="True"
+                                              Click="TextureScope_Changed" Style="{StaticResource ToolbarToggle}" Width="90" Margin="0,0,4,0"/>
+                                <ToggleButton x:Name="BtnScopeCell" Content="This tile" IsChecked="False"
+                                              Click="TextureScope_Changed" Style="{StaticResource ToolbarToggle}" Width="80"/>
+                            </StackPanel>
+                            <TextBlock x:Name="TextureScopeHint" Text="Applies to all tiles of this type"
+                                       Foreground="#55ffffff" FontFamily="Consolas" FontSize="9"
+                                       TextWrapping="Wrap" Margin="0,0,0,12"/>
+
+                            <TextBlock Text="Top"   Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+                            <DockPanel Margin="0,0,0,8">
+                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_TopBrowse"   Style="{StaticResource SmallBtn}" Width="28"/>
+                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_TopClear"    Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
+                                <TextBlock x:Name="TextureTopLabel" Text="(default)" Foreground="#66ffffff"
+                                           FontFamily="Consolas" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+
+                            <TextBlock Text="Left"  Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+                            <DockPanel Margin="0,0,0,8">
+                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_LeftBrowse"  Style="{StaticResource SmallBtn}" Width="28"/>
+                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_LeftClear"   Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
+                                <TextBlock x:Name="TextureLeftLabel" Text="(default)" Foreground="#66ffffff"
+                                           FontFamily="Consolas" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+
+                            <TextBlock Text="Right" Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+                            <DockPanel Margin="0,0,0,16">
+                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_RightBrowse" Style="{StaticResource SmallBtn}" Width="28"/>
+                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_RightClear"  Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
+                                <TextBlock x:Name="TextureRightLabel" Text="(default)" Foreground="#66ffffff"
+                                           FontFamily="Consolas" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                            </DockPanel>
+
+                            <Button Content="Clear all overrides" Click="Texture_ClearAllOverrides"
+                                    Style="{StaticResource ToolbarBtn}" HorizontalAlignment="Stretch" Margin="0,0,0,18"/>
+
+                            <!-- Dweller inspector section -->
+                            <Border x:Name="DwellerInspectorPanel" Visibility="Collapsed"
+                                    Background="#1a1a2e" BorderBrush="#33c8a84b" BorderThickness="1"
+                                    CornerRadius="4" Padding="10,8" Margin="0,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="DWELLER" Foreground="#c8a84b" FontFamily="Consolas"
+                                               FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
+                                    <TextBlock x:Name="DwellerName"    Foreground="#ffffff" FontFamily="Consolas" FontSize="13" FontWeight="Bold"/>
+                                    <TextBlock x:Name="DwellerRarity"  Foreground="#aaffffff" FontFamily="Consolas" FontSize="10" Margin="0,2,0,6"/>
+                                    <TextBlock x:Name="DwellerSpecial" Foreground="#aaffffff" FontFamily="Consolas" FontSize="10" LineHeight="16"/>
+                                    <Button Content="Remove from map" Click="DwellerRemove_Click"
+                                            Style="{StaticResource SmallBtn}" Margin="0,10,0,0" HorizontalAlignment="Left"/>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </TabItem>
+
+                <TabItem Header="ASSETS">
+                    <DockPanel Margin="14">
+                        <TextBlock DockPanel.Dock="Top" Text="TEXTURE ASSETS" Foreground="#c8a84b" 
+                                   FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,8,0,12"/>
+                        
+                        <Button DockPanel.Dock="Bottom" Content="＋ Add Texture File" Click="Asset_Add_Click" 
+                                Style="{StaticResource ToolbarBtn}" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
+                        
+                        <ListBox x:Name="AssetListBox" Background="#1a1a2e" BorderBrush="#33ffffff" 
+                                 Foreground="#ffffff" FontFamily="Consolas" FontSize="11" BorderThickness="1">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <DockPanel LastChildFill="True" Margin="2">
+                                        <Button DockPanel.Dock="Right" Content="✕" Click="Asset_Remove_Click" 
+                                                Tag="{Binding}" Style="{StaticResource SmallBtn}" Width="24"/>
+                                        <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                    </DockPanel>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </TabItem>
+            </TabControl>
+        </Border>
+
+    </Grid>
+</Window>
