@@ -9,19 +9,14 @@ using IsometricWPF.Dwellers;
 
 namespace IsometricWPF
 {
+    // ── WPF visual host ───────────────────────────────────────────────────────
 
-
-
-
-
-    public class DrawingVisualHost : UIElement
+    /// <summary>Lightweight UIElement that owns a collection of DrawingVisuals.</summary>
+    public sealed class DrawingVisualHost : UIElement
     {
         private readonly VisualCollection _visuals;
 
-        public DrawingVisualHost()
-        {
-            _visuals = new VisualCollection(this);
-        }
+        public DrawingVisualHost() => _visuals = new VisualCollection(this);
 
         public DrawingVisual AddVisual()
         {
@@ -32,57 +27,50 @@ namespace IsometricWPF
 
         public void Clear() => _visuals.Clear();
 
-        protected override int VisualChildrenCount => _visuals.Count;
-        protected override Visual GetVisualChild(int index) => _visuals[index];
+        protected override int    VisualChildrenCount          => _visuals.Count;
+        protected override Visual GetVisualChild(int index)    => _visuals[index];
     }
 
 
+    // ── Renderer ──────────────────────────────────────────────────────────────
 
-
-
-
-
-    public class IsometricRenderer
+    /// <summary>
+    /// Isometric tile renderer using a painter's-algorithm diagonal-sum traversal.
+    /// Viewport culling keeps large maps performant; geometry and brush results are cached.
+    /// </summary>
+    public sealed class IsometricRenderer
     {
-        private WorldMap _map;
-        private List<DwellerInstance> _dwellers = new();
-        private bool     _showGrid    = true;
-        private bool     _showHeights = true;
+        // ── State ─────────────────────────────────────────────────────
+        private WorldMap?                  _map;
+        private List<DwellerInstance>      _dwellers = new();
+        private bool                       _showGrid    = true;
+        private bool                       _showHeights = true;
+        private Rect                       _viewport    = Rect.Empty;
 
+        // ── Caches ────────────────────────────────────────────────────
+        private readonly Dictionary<string, Brush[]>         _brushCache = new();
+        private readonly Dictionary<int, StreamGeometry[]>   _geoCache   = new();
+
+        // ── WPF objects ───────────────────────────────────────────────
         private readonly DrawingVisualHost _host;
         private readonly DrawingVisual     _tileVisual;
         private readonly Pen               _gridPen;
 
-
-        private Rect _viewport = Rect.Empty;
-
-
-        private readonly Dictionary<string, Brush[]> _brushCache = new();
-
-
-        private readonly Dictionary<int, StreamGeometry[]> _geoCache = new();
-
-
-        private double TileW => AppConfig.Instance.TileWidth;
-        private double TileH => AppConfig.Instance.TileHeight;
-        private double StackStep => AppConfig.Instance.BlockStackStep;
-
-        public delegate void TileHoveredHandler(int gx, int gy);
-        public event TileHoveredHandler TileHovered;
-        public event TileHoveredHandler TileHoverLeft;
-
+        // ── Hover tracking ────────────────────────────────────────────
         private int _lastHoverX = -1, _lastHoverY = -1;
 
+        // ── Convenience ───────────────────────────────────────────────
+        private double TileW     => AppConfig.Instance.TileWidth;
+        private double TileH     => AppConfig.Instance.TileHeight;
+        private double StackStep => AppConfig.Instance.BlockStackStep;
+
+        // ── Events ────────────────────────────────────────────────────
+        public delegate void TileHoveredHandler(int gx, int gy);
+        public event TileHoveredHandler? TileHovered;
+        public event TileHoveredHandler? TileHoverLeft;
+
+        // ── Public surface ────────────────────────────────────────────
         public DrawingVisualHost Host => _host;
-
-        public IsometricRenderer()
-        {
-            _host       = new DrawingVisualHost();
-            _tileVisual = _host.AddVisual();
-
-            _gridPen = new Pen(new SolidColorBrush(Color.FromArgb(55, 0, 0, 0)), 0.5);
-            _gridPen.Freeze();
-        }
 
         public bool ShowGrid
         {
@@ -95,6 +83,19 @@ namespace IsometricWPF
             get => _showHeights;
             set { _showHeights = value; Redraw(); }
         }
+
+        // ── Constructor ───────────────────────────────────────────────
+
+        public IsometricRenderer()
+        {
+            _host       = new DrawingVisualHost();
+            _tileVisual = _host.AddVisual();
+
+            _gridPen = new Pen(new SolidColorBrush(Color.FromArgb(55, 0, 0, 0)), 0.5);
+            _gridPen.Freeze();
+        }
+
+        // ── Map / dweller loading ─────────────────────────────────────
 
         public void LoadMap(WorldMap map)
         {
@@ -110,9 +111,12 @@ namespace IsometricWPF
             Redraw();
         }
 
-        public void InvalidateBrushCache() => _brushCache.Clear();
+        public void InvalidateBrushCache()
+        {
+            _brushCache.Clear();
+        }
 
-
+        // ── Viewport ──────────────────────────────────────────────────
 
         public void SetViewport(double x, double y, double width, double height)
         {
@@ -120,218 +124,190 @@ namespace IsometricWPF
             Redraw();
         }
 
+        // ── Main draw loop ────────────────────────────────────────────
+
         public void Redraw()
         {
             if (_map == null) return;
 
-
-            var dwellerLookup = new Dictionary<long, List<DwellerInstance>>();
-            foreach (var d in _dwellers)
-            {
-                long key = (long)d.TileX << 32 | (uint)d.TileY;
-                if (!dwellerLookup.TryGetValue(key, out var list))
-                {
-                    list = new List<DwellerInstance>();
-                    dwellerLookup[key] = list;
-                }
-                list.Add(d);
-            }
+            // Build a fast lookup from tile coords to dweller list
+            var dwellerLookup = BuildDwellerLookup();
 
             using var dc = _tileVisual.RenderOpen();
 
-
             int maxSum = _map.Columns + _map.Rows - 2;
 
-
-            int minSumVisible = 0;
-            int maxSumVisible = maxSum;
-
+            // Bug #1 fix: culling offset must account for the full configured stack height,
+            // not a hardcoded magic number of 10.
+            int minSum = 0, maxSumV = maxSum;
             if (!_viewport.IsEmpty)
             {
-
-
-
-                minSumVisible = Math.Max(0, (int)((_viewport.Top - 10 * StackStep) / (TileH / 2.0)) - 1);
-                maxSumVisible = Math.Min(maxSum, (int)((_viewport.Bottom) / (TileH / 2.0)) + 1);
+                double heightBudget = AppConfig.Instance.MaxStackHeight * StackStep;
+                minSum  = Math.Max(0,      (int)((_viewport.Top  - heightBudget) / (TileH / 2.0)) - 1);
+                maxSumV = Math.Min(maxSum, (int)((_viewport.Bottom)               / (TileH / 2.0)) + 1);
             }
 
-            for (int sum = minSumVisible; sum <= maxSumVisible; sum++)
+            for (int sum = minSum; sum <= maxSumV; sum++)
             {
-                int minX = 0;
-                int maxX = sum;
-
+                int x0 = 0, x1 = sum;
                 if (!_viewport.IsEmpty)
                 {
-                    minX = Math.Max(0, (int)(((_viewport.Left - TileW) / (TileW / 2.0) + sum) / 2.0));
-                    maxX = Math.Min(sum, (int)(((_viewport.Right) / (TileW / 2.0) + sum) / 2.0) + 1);
+                    x0 = Math.Max(0,   (int)(((_viewport.Left  - TileW) / (TileW / 2.0) + sum) / 2.0));
+                    x1 = Math.Min(sum, (int)(((_viewport.Right)          / (TileW / 2.0) + sum) / 2.0) + 1);
                 }
 
-                for (int x = minX; x <= maxX; x++)
+                for (int x = x0; x <= x1; x++)
                 {
                     int y = sum - x;
-                    if (y >= 0 && y < _map.Rows && x < _map.Columns) 
-                    {
-                        DrawCell(dc, x, y);
-                        
+                    if (y < 0 || y >= _map.Rows || x >= _map.Columns) continue;
 
-                        long k = (long)x << 32 | (uint)y;
-                        if (dwellerLookup.TryGetValue(k, out var list))
-                        {
-                            foreach (var dweller in list)
-                                DrawDweller(dc, dweller);
-                        }
-                    }
+                    DrawCell(dc, x, y);
+
+                    long k = (long)x << 32 | (uint)y;
+                    if (dwellerLookup.TryGetValue(k, out var list))
+                        foreach (var d in list) DrawDweller(dc, d);
                 }
             }
         }
 
-        private void DrawDweller(DrawingContext dc, DwellerInstance dweller) {
-            var drawing = DwellerVisualFactory.Create(dweller);
-            if (drawing == null) return;
+        // ── Cell drawing ─────────────────────────────────────────────
 
-            Point pos = GetTileCenter(dweller.TileX, dweller.TileY);
+        private void DrawCell(DrawingContext dc, int gx, int gy)
+        {
+            var cell = _map![gx, gy];
+            TileToScreen(gx, gy, out double sx, out double sy);
+            Pen? pen = _showGrid ? _gridPen : null;
+
+            dc.PushTransform(new TranslateTransform(sx, sy));
+
+            if (_showHeights && cell.Blocks.Count > 0)
+            {
+                foreach (var kvp in cell.Blocks.OrderBy(b => b.Key))
+                {
+                    int    hi   = kvp.Key;
+                    var    def  = TileRegistry.Get(kvp.Value);
+                    var    brs  = ResolveBrushes(kvp.Value, def);
+                    double topY = -(hi + 1) * StackStep;
+
+                    dc.DrawGeometry(brs[1], pen, GetSideGeo(topY, StackStep + 0.5, isLeft: true));
+                    dc.DrawGeometry(brs[2], pen, GetSideGeo(topY, StackStep + 0.5, isLeft: false));
+
+                    // Only draw the top face if no block sits directly above
+                    if (!cell.Blocks.ContainsKey(hi + 1))
+                        dc.DrawGeometry(brs[0], pen, GetTopGeo(topY));
+                }
+            }
+            else if (cell.Blocks.Count > 0)
+            {
+                // Heights hidden: draw only the topmost face flat
+                string? top = cell.TopBlockName;
+                if (top != null)
+                {
+                    var brs = ResolveBrushes(top, TileRegistry.Get(top));
+                    dc.DrawGeometry(brs[0], pen, GetTopGeo(0));
+                }
+            }
+
+            // Decors
+            if (cell.Decors.Count > 0)
+            {
+                double stackH = _showHeights ? cell.Blocks.Count * StackStep : 0;
+                foreach (var name in cell.Decors)
+                    DrawDecor(dc, name, stackH);
+            }
+
+            dc.Pop();
+        }
+
+        private static void DrawDecor(DrawingContext dc, string decorName, double heightOffset)
+        {
+            // TODO: replace with real decor sprites; green dot is a placeholder
+            dc.DrawEllipse(Brushes.Green, null,
+                new Point(AppConfig.Instance.TileWidth / 2, -heightOffset + AppConfig.Instance.TileHeight / 2),
+                10, 10);
+        }
+
+        private void DrawDweller(DrawingContext dc, DwellerInstance d)
+        {
+            var drawing = DwellerVisualFactory.Create(d);
+            if (drawing == null) return;
+            var pos = GetTileCenter(d.TileX, d.TileY);
             dc.PushTransform(new TranslateTransform(pos.X, pos.Y));
             dc.DrawDrawing(drawing);
             dc.Pop();
         }
 
-        private void DrawCell(DrawingContext drawingContext, int gridX, int gridY)
-        {
-            var cell = _map[gridX, gridY];
-            TileToScreen(gridX, gridY, out double screenX, out double screenY);
-            Pen gridPen = _showGrid ? _gridPen : null;
-
-            drawingContext.PushTransform(new TranslateTransform(screenX, screenY));
-
-            if (_showHeights && cell.Blocks.Count > 0)
-            {
-
-                foreach (var kvp in cell.Blocks.OrderBy(b => b.Key))
-                {
-                    int heightIndex = kvp.Key;
-                    string blockName = kvp.Value;
-                    var blockDefinition = TileRegistry.Get(blockName);
-                    var brushes = ResolveBrushes(blockName, blockDefinition);
-
-                    double topY = -(heightIndex + 1) * StackStep;
-                    
-
-                    drawingContext.DrawGeometry(brushes[1], gridPen, GetSideGeo(topY, StackStep + 0.5, true));
-                    drawingContext.DrawGeometry(brushes[2], gridPen, GetSideGeo(topY, StackStep + 0.5, false));
-
-
-                    if (!cell.Blocks.ContainsKey(heightIndex + 1))
-                    {
-                        drawingContext.DrawGeometry(brushes[0], gridPen, GetTopGeo(topY));
-                    }
-                }
-            }
-            else if (cell.Blocks.Count == 0)
-            {
-
-
-
-            }
-            else
-            {
-
-                int maxHeight = -1;
-                foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-                
-                if (maxHeight >= 0)
-                {
-                    string topBlockName = cell.Blocks[maxHeight];
-                    var brushes = ResolveBrushes(topBlockName, TileRegistry.Get(topBlockName));
-                    drawingContext.DrawGeometry(brushes[0], gridPen, GetTopGeo(0));
-                }
-            }
-
-
-            if (cell.Decors.Count > 0)
-            {
-                double stackHeightPx = _showHeights ? cell.Blocks.Count * StackStep : 0;
-                foreach (var decorName in cell.Decors)
-                {
-                    DrawDecor(drawingContext, decorName, stackHeightPx);
-                }
-            }
-
-            drawingContext.Pop();
-        }
-
-
+        // ── Geometry cache ────────────────────────────────────────────
 
         private StreamGeometry GetTopGeo(double t)
         {
             int key = (int)t;
-            if (_geoCache.TryGetValue(key, out var cached) && cached[0] != null) return cached[0];
+            if (_geoCache.TryGetValue(key, out var arr) && arr[0] != null) return arr[0];
 
             var g = new StreamGeometry();
             using (var ctx = g.Open())
             {
-                ctx.BeginFigure(new Point(TileW / 2.0, t), true, true);
-                ctx.LineTo(new Point(TileW, t + TileH / 2.0), true, false);
-                ctx.LineTo(new Point(TileW / 2.0, t + TileH), true, false);
-                ctx.LineTo(new Point(0, t + TileH / 2.0), true, false);
+                ctx.BeginFigure(new Point(TileW / 2, t), true, true);
+                ctx.LineTo(new Point(TileW,     t + TileH / 2), true, false);
+                ctx.LineTo(new Point(TileW / 2, t + TileH),     true, false);
+                ctx.LineTo(new Point(0,          t + TileH / 2), true, false);
             }
             g.Freeze();
-            
-            if (!_geoCache.ContainsKey(key)) _geoCache[key] = new StreamGeometry[3];
-            _geoCache[key][0] = g;
+            EnsureGeoSlot(key)[0] = g;
             return g;
         }
 
-        private StreamGeometry GetSideGeo(double t, double h, bool left)
+        private StreamGeometry GetSideGeo(double t, double h, bool isLeft)
         {
-            int key = (int)(t * 1000 + h);
-            int slot = left ? 1 : 2;
-            if (_geoCache.TryGetValue(key, out var cached) && cached[slot] != null) return cached[slot];
+            int key  = (int)(t * 1000 + h);
+            int slot = isLeft ? 1 : 2;
+            if (_geoCache.TryGetValue(key, out var arr) && arr[slot] != null) return arr[slot];
 
             var g = new StreamGeometry();
             using (var ctx = g.Open())
             {
-                if (left)
+                if (isLeft)
                 {
-                    ctx.BeginFigure(new Point(0, t + TileH / 2.0), true, true);
-                    ctx.LineTo(new Point(TileW / 2.0, t + TileH), true, false);
-                    ctx.LineTo(new Point(TileW / 2.0, t + TileH + h), true, false);
-                    ctx.LineTo(new Point(0, t + TileH / 2.0 + h), true, false);
+                    ctx.BeginFigure(new Point(0,          t + TileH / 2),     true, true);
+                    ctx.LineTo(new Point(TileW / 2, t + TileH),          true, false);
+                    ctx.LineTo(new Point(TileW / 2, t + TileH + h),      true, false);
+                    ctx.LineTo(new Point(0,          t + TileH / 2 + h), true, false);
                 }
                 else
                 {
-                    ctx.BeginFigure(new Point(TileW / 2.0, t + TileH), true, true);
-                    ctx.LineTo(new Point(TileW, t + TileH / 2.0), true, false);
-                    ctx.LineTo(new Point(TileW, t + TileH / 2.0 + h), true, false);
-                    ctx.LineTo(new Point(TileW / 2.0, t + TileH + h), true, false);
+                    ctx.BeginFigure(new Point(TileW / 2, t + TileH),          true, true);
+                    ctx.LineTo(new Point(TileW,     t + TileH / 2),      true, false);
+                    ctx.LineTo(new Point(TileW,     t + TileH / 2 + h),  true, false);
+                    ctx.LineTo(new Point(TileW / 2, t + TileH + h),      true, false);
                 }
             }
             g.Freeze();
-
-            if (!_geoCache.ContainsKey(key)) _geoCache[key] = new StreamGeometry[3];
-            _geoCache[key][slot] = g;
+            EnsureGeoSlot(key)[slot] = g;
             return g;
         }
 
-        private void DrawDecor(DrawingContext dc, string decorName, double heightOffset)
+        private StreamGeometry[] EnsureGeoSlot(int key)
         {
-
-
-            var decorBrush = Brushes.Green;
-            dc.DrawEllipse(decorBrush, null, new Point(TileW / 2, -heightOffset + TileH / 2), 10, 10);
+            if (!_geoCache.TryGetValue(key, out var arr))
+            {
+                arr = new StreamGeometry[3];
+                _geoCache[key] = arr;
+            }
+            return arr;
         }
 
-        private Brush[] ResolveBrushes(string tileName, TileDefinition definition)
+        // ── Brush cache ───────────────────────────────────────────────
+
+        private Brush[] ResolveBrushes(string name, TileDefinition def)
         {
-            if (_brushCache.TryGetValue(tileName, out var cached)) return cached;
-
-            var brushes = new Brush[]
+            if (_brushCache.TryGetValue(name, out var cached)) return cached;
+            var brushes = new[]
             {
-                ProjectBrush(definition.TopBrush,   FaceType.Top),
-                ProjectBrush(definition.LeftBrush,  FaceType.Left),
-                ProjectBrush(definition.RightBrush, FaceType.Right)
+                ProjectBrush(def.TopBrush,   FaceType.Top),
+                ProjectBrush(def.LeftBrush,  FaceType.Left),
+                ProjectBrush(def.RightBrush, FaceType.Right),
             };
-
-            _brushCache[tileName] = brushes;
+            _brushCache[name] = brushes;
             return brushes;
         }
 
@@ -343,15 +319,16 @@ namespace IsometricWPF
 
             if (b is SolidColorBrush scb)
             {
-                var c = scb.Color;
-                var newB = new SolidColorBrush(Color.FromRgb((byte)(c.R * factor), (byte)(c.G * factor), (byte)(c.B * factor)));
+                var c    = scb.Color;
+                var newB = new SolidColorBrush(Color.FromRgb(
+                    (byte)(c.R * factor), (byte)(c.G * factor), (byte)(c.B * factor)));
                 newB.Freeze();
                 return newB;
             }
 
-            if (!(b is ImageBrush img)) return b;
+            if (b is not ImageBrush img) return b;
 
-
+            // Build an affine transform that maps the square image onto the isometric face
             var group = new TransformGroup();
             if (face == FaceType.Top)
             {
@@ -368,46 +345,31 @@ namespace IsometricWPF
                 group.Children.Add(new TranslateTransform(TileW / 2.0, TileH / 2.0));
             }
 
-
             var viewport = new Rect(0, 0, 32, 32);
+            Brush final;
 
-            Brush finalBrush;
             if (factor < 1.0f)
             {
-
+                // Composite: image + darkening overlay for left/right faces
                 var dg = new DrawingGroup();
                 dg.Children.Add(new ImageDrawing(img.ImageSource, new Rect(0, 0, 32, 32)));
-                
-                var shadeBrush = new SolidColorBrush(Color.FromArgb((byte)(255 * (1.0 - factor)), 0, 0, 0));
-                shadeBrush.Freeze();
-                dg.Children.Add(new GeometryDrawing(shadeBrush, null, new RectangleGeometry(new Rect(0, 0, 32, 32))));
-                
-                finalBrush = new DrawingBrush(dg)
-                {
-                    ViewportUnits = BrushMappingMode.Absolute,
-                    Viewport = viewport,
-                    TileMode = TileMode.Tile,
-                    Stretch  = Stretch.Fill,
-                    Transform = group
-                };
+                var shade = new SolidColorBrush(Color.FromArgb((byte)(255 * (1f - factor)), 0, 0, 0));
+                shade.Freeze();
+                dg.Children.Add(new GeometryDrawing(shade, null, new RectangleGeometry(new Rect(0, 0, 32, 32))));
+                final = new DrawingBrush(dg)
+                    { ViewportUnits = BrushMappingMode.Absolute, Viewport = viewport, TileMode = TileMode.Tile, Stretch = Stretch.Fill, Transform = group };
             }
             else
             {
-                finalBrush = new ImageBrush(img.ImageSource)
-                {
-                    ViewportUnits = BrushMappingMode.Absolute,
-                    Viewport      = viewport,
-                    TileMode      = TileMode.Tile,
-                    Stretch       = Stretch.Fill,
-                    Transform     = group
-                };
+                final = new ImageBrush(img.ImageSource)
+                    { ViewportUnits = BrushMappingMode.Absolute, Viewport = viewport, TileMode = TileMode.Tile, Stretch = Stretch.Fill, Transform = group };
             }
 
-            finalBrush.Freeze();
-            return finalBrush;
+            final.Freeze();
+            return final;
         }
 
-
+        // ── Mouse interaction ─────────────────────────────────────────
 
         public void OnMouseMove(Point worldPos)
         {
@@ -415,15 +377,13 @@ namespace IsometricWPF
 
             if (_map == null || !_map.IsInBounds(gx, gy))
             {
-                if (_lastHoverX >= 0) { TileHoverLeft?.Invoke(_lastHoverX, _lastHoverY); _lastHoverX = _lastHoverY = -1; }
+                if (_lastHoverX >= 0) { TileHoverLeft?.Invoke(_lastHoverX, _lastHoverY); _lastHoverX = -1; }
                 return;
             }
-
             if (gx == _lastHoverX && gy == _lastHoverY) return;
 
             if (_lastHoverX >= 0) TileHoverLeft?.Invoke(_lastHoverX, _lastHoverY);
-            _lastHoverX = gx;
-            _lastHoverY = gy;
+            _lastHoverX = gx; _lastHoverY = gy;
             TileHovered?.Invoke(gx, gy);
         }
 
@@ -433,7 +393,7 @@ namespace IsometricWPF
             _lastHoverX = _lastHoverY = -1;
         }
 
-
+        // ── Coordinate conversion ─────────────────────────────────────
 
         public void TileToScreen(int gx, int gy, out double sx, out double sy)
         {
@@ -441,6 +401,7 @@ namespace IsometricWPF
             sy = (gx + gy) * (TileH / 2.0);
         }
 
+        /// <summary>Flat (height=0) screen→tile conversion.</summary>
         public void ScreenToTile(double wx, double wy, out int gx, out int gy)
         {
             double ax = wx - TileW / 2.0;
@@ -448,51 +409,69 @@ namespace IsometricWPF
             gy = (int)Math.Floor((wy / (TileH / 2.0) - ax / (TileW / 2.0)) / 2.0);
         }
 
-        public void ScreenToTile(WorldMap map, double wx, double wy, out int gx, out int gy)
+        /// <summary>
+        /// Height-aware screen→tile conversion: walks down from the highest possible block
+        /// so that clicking the top face of a tall stack returns the correct tile.
+        /// Bug #5 fix: loop starts at MaxStackHeight and stops at h >= 1 (not h >= 0),
+        /// avoiding the off-by-one that caused ContainsKey(-1) lookups.
+        /// </summary>
+        public void ScreenToTile(WorldMap? map, double wx, double wy, out int gx, out int gy)
         {
             map ??= _map;
             if (map == null) { ScreenToTile(wx, wy, out gx, out gy); return; }
 
-
-            for (int h = AppConfig.Instance.MaxStackHeight; h >= 0; h--)
+            for (int h = AppConfig.Instance.MaxStackHeight; h >= 1; h--)
             {
                 double curWy = wy + h * StackStep;
-                double ax = wx - TileW / 2.0;
+                double ax    = wx - TileW / 2.0;
                 int tx = (int)Math.Floor((ax / (TileW / 2.0) + curWy / (TileH / 2.0)) / 2.0);
                 int ty = (int)Math.Floor((curWy / (TileH / 2.0) - ax / (TileW / 2.0)) / 2.0);
 
                 if (map.IsInBounds(tx, ty) && map[tx, ty].Blocks.ContainsKey(h - 1))
                 {
-                    gx = tx; gy = ty;
-                    return;
+                    gx = tx; gy = ty; return;
                 }
             }
             ScreenToTile(wx, wy, out gx, out gy);
         }
 
+        // ── Diamond / center helpers (used by MainWindow for cursors) ─
+
         public PointCollection GetDiamondPoints(int gx, int gy)
         {
             TileToScreen(gx, gy, out double sx, out double sy);
-            int maxHeight = -1;
-            if (_map != null) foreach (var h in _map[gx, gy].Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            double heightPx = (_showHeights && maxHeight >= 0) ? (maxHeight + 1) * StackStep : 0;
-            double t = sy - heightPx;
+            int    top      = _map?[gx, gy].MaxBlockHeight ?? -1;
+            double heightPx = (_showHeights && top >= 0) ? (top + 1) * StackStep : 0;
+            double t        = sy - heightPx;
             return new PointCollection
             {
-                new(sx + TileW / 2.0, t),
-                new(sx + TileW,       t + TileH / 2.0),
-                new(sx + TileW / 2.0, t + TileH),
-                new(sx,               t + TileH / 2.0)
+                new(sx + TileW / 2, t),
+                new(sx + TileW,     t + TileH / 2),
+                new(sx + TileW / 2, t + TileH),
+                new(sx,             t + TileH / 2),
             };
         }
 
         public Point GetTileCenter(int gx, int gy)
         {
             TileToScreen(gx, gy, out double sx, out double sy);
-            int maxHeight = -1;
-            if (_map != null) foreach (var h in _map[gx, gy].Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            double heightPx = (_showHeights && maxHeight >= 0) ? (maxHeight + 1) * StackStep : 0;
-            return new Point(sx + TileW / 2.0, sy - heightPx + TileH / 2.0);
+            int    top      = _map?[gx, gy].MaxBlockHeight ?? -1;
+            double heightPx = (_showHeights && top >= 0) ? (top + 1) * StackStep : 0;
+            return new Point(sx + TileW / 2, sy - heightPx + TileH / 2);
+        }
+
+        // ── Private utilities ─────────────────────────────────────────
+
+        private Dictionary<long, List<DwellerInstance>> BuildDwellerLookup()
+        {
+            var lookup = new Dictionary<long, List<DwellerInstance>>();
+            foreach (var d in _dwellers)
+            {
+                long k = (long)d.TileX << 32 | (uint)d.TileY;
+                if (!lookup.TryGetValue(k, out var list)) lookup[k] = list = new();
+                list.Add(d);
+            }
+            return lookup;
         }
     }
 }

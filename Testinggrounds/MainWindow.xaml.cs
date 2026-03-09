@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -13,28 +14,33 @@ namespace IsometricWPF
 {
     public partial class MainWindow : Window
     {
-        private const double MINIMAP_WIDTH  = 158;
-        private const double MINIMAP_HEIGHT = 108;
+        // ── Constants ─────────────────────────────────────────────────
+        private const double MINIMAP_W = 158;
+        private const double MINIMAP_H = 108;
+        private const double ZOOM_MIN  = 0.05;
+        private const double ZOOM_MAX  = 6.0;
 
+        // ── Core objects ──────────────────────────────────────────────
         private WorldMap          _worldMap;
-        private IsometricRenderer _worldRenderer;
-        private DwellerLayer      _dwellerController;
+        private IsometricRenderer _renderer;
+        private DwellerLayer      _dwellerLayer;
+
+        // Bug #8 fix: fast lookup instead of a fragile index formula
+        private readonly Dictionary<(int x, int y), Rectangle> _minimapRects = new();
+
+        // ── Camera ────────────────────────────────────────────────────
+        private bool   _isPanning;
+        private Point  _lastMousePos;
+        private double _zoom = 1.0;
+
+        // ── Editor state ──────────────────────────────────────────────
+        private int    _selectedX = -1, _selectedY = -1;
+        private string _activeTile = "Grass";
+        private bool   _dwellerPlacementMode;
 
         public WorldMap World => _worldMap;
 
-        private bool   _isCameraPanning;
-        private Point  _lastMousePosition;
-        private double _cameraZoom = 1.0;
-        
-        private const double ZOOM_MINIMUM = 0.05;
-        private const double ZOOM_MAXIMUM = 6.0;
-
-        private int    _selectedGridX = -1, _selectedGridY = -1;
-        private int    _activeHeightBrush = 0;
-        private string _activeTileName    = "Grass";
-        private bool   _isTextureScopeCell = false;
-
-        private bool _isDwellerPlacementMode = false;
+        // ── Constructor ───────────────────────────────────────────────
 
         public MainWindow()
         {
@@ -45,158 +51,166 @@ namespace IsometricWPF
             AssetRegistry.Initialize();
             PopulateDwellerPicker();
 
-            _worldRenderer = new IsometricRenderer();
-            _worldRenderer.TileHovered   += OnTileHovered;
-            _worldRenderer.TileHoverLeft += OnTileHoverLeft;
-            TileHostContainer.Children.Add(_worldRenderer.Host);
+            _renderer = new IsometricRenderer();
+            _renderer.TileHovered   += OnTileHovered;
+            _renderer.TileHoverLeft += OnTileHoverLeft;
+            TileHostContainer.Children.Add(_renderer.Host);
 
-            _dwellerController = new DwellerLayer(_worldRenderer);
-            _dwellerController.DwellerSelected += OnDwellerSelected;
+            // Bug #3 fix: pass a delegate so DwellerLayer never touches MainWindow directly
+            _dwellerLayer = new DwellerLayer(_renderer, () => _worldMap);
+            _dwellerLayer.DwellerSelected += OnDwellerSelected;
 
-            _cameraZoom = AppConfig.Instance.DefaultZoom;
-            CameraScale.ScaleX = CameraScale.ScaleY = _cameraZoom;
+            _zoom = AppConfig.Instance.DefaultZoom;
+            CameraScale.ScaleX = CameraScale.ScaleY = _zoom;
             BtnEditorMode.IsChecked = AppConfig.Instance.EditorEnabled;
+            BtnGrid.IsChecked       = AppConfig.Instance.ShowGrid;
+            BtnHeights.IsChecked    = AppConfig.Instance.ShowHeights;
 
             BuildPalette();
-            
-            // Start with a default island
             LoadWorld(WorldMap.GenerateIsland(AppConfig.Instance.DefaultMapCols, AppConfig.Instance.DefaultMapRows));
-            
             ApplyEditorMode();
+
             AssetListBox.ItemsSource = AssetRegistry.TextureNames.ToList();
-            
+
             this.Focus();
-            this.SizeChanged += (sender, args) => UpdateRendererViewport();
+            this.SizeChanged += (_, _) => UpdateRendererViewport();
         }
+
+        // ── Viewport sync ─────────────────────────────────────────────
 
         private void UpdateRendererViewport()
         {
-            if (_worldRenderer == null || ViewportGrid == null) return;
-            
-            double visibleWidth  = ViewportGrid.ActualWidth / _cameraZoom;
-            double visibleHeight = ViewportGrid.ActualHeight / _cameraZoom;
-            
-            _worldRenderer.SetViewport(-CameraPan.X / _cameraZoom, -CameraPan.Y / _cameraZoom, visibleWidth, visibleHeight);
+            if (_renderer == null || ViewportGrid == null) return;
+            double w = ViewportGrid.ActualWidth  / _zoom;
+            double h = ViewportGrid.ActualHeight / _zoom;
+            _renderer.SetViewport(-CameraPan.X / _zoom, -CameraPan.Y / _zoom, w, h);
         }
 
-        // ══ Editor mode ════════════════════════════════════════════════
+        // ── Editor mode ───────────────────────────────────────────────
 
         private void ApplyEditorMode()
         {
             bool on = AppConfig.Instance.EditorEnabled;
-            LeftSidePanel.Visibility   = on ? Visibility.Visible : Visibility.Collapsed;
-            RightSidePanel.Visibility  = on ? Visibility.Visible : Visibility.Collapsed;
+            LeftSidePanel.Visibility  = on ? Visibility.Visible : Visibility.Collapsed;
+            RightSidePanel.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
             EditorModeLabel.Visibility = Visibility.Visible;
             EditorModeLabel.Text       = on ? "  ✏ EDITOR" : "  👁 VIEW";
             EditorModeLabel.Foreground = on
                 ? new SolidColorBrush(Color.FromRgb(136, 255, 136))
                 : new SolidColorBrush(Color.FromRgb(136, 170, 255));
-            if (!on) { SelectionCursor.Visibility = Visibility.Hidden; HoverCursor.Visibility = Visibility.Hidden; }
+            if (!on) { SelectionCursor.Visibility = HoverCursor.Visibility = Visibility.Hidden; }
         }
 
-        // ══ World loading ══════════════════════════════════════════════
+        // ── World loading ─────────────────────────────────────────────
 
         private void LoadWorld(WorldMap world)
         {
-            _worldMap      = world;
-            _selectedGridX = _selectedGridY = -1;
+            _worldMap  = world;
+            _selectedX = _selectedY = -1;
             SelectionCursor.Visibility = Visibility.Hidden;
-            _worldRenderer.LoadMap(world);
-            _dwellerController.ClearAll();
+            _renderer.LoadMap(world);
+            _dwellerLayer.ClearAll();
             RenderMiniMap();
             UpdateMiniMapViewport();
             UpdateCameraLabel();
             ClearInspector();
         }
 
-        // ══ Dwellers ══════════════════════════════════════════════════
+        // ── Dwellers ──────────────────────────────────────────────────
 
         private void PopulateDwellerPicker()
         {
             DwellerPicker.Items.Clear();
-            foreach (var dweller in DwellerRegistry.All)
-                DwellerPicker.Items.Add(dweller.DisplayName);
+            foreach (var d in DwellerRegistry.All) DwellerPicker.Items.Add(d.DisplayName);
             if (DwellerPicker.Items.Count > 0) DwellerPicker.SelectedIndex = 0;
         }
 
         private void SpawnDweller_Click(object sender, RoutedEventArgs e)
         {
             if (DwellerPicker.SelectedIndex < 0) return;
-            _isDwellerPlacementMode = true;
-            MoveCursor.Visibility = Visibility.Hidden;
-            CameraLabel.Text = "Click a tile to place the dweller...";
+            _dwellerPlacementMode = true;
+            CameraLabel.Text = "📍 Click a tile to place dweller  [Esc = cancel]";
         }
 
-        private void OnDwellerSelected(DwellerInstance dweller)
-        {
-            UpdateDwellerInspector(dweller);
-        }
+        private void OnDwellerSelected(DwellerInstance? dweller) => UpdateDwellerInspector(dweller);
 
-        private void UpdateDwellerInspector(DwellerInstance dweller)
+        private void UpdateDwellerInspector(DwellerInstance? d)
         {
-            if (dweller == null) { DwellerInspectorPanel.Visibility = Visibility.Collapsed; return; }
+            if (d == null) { DwellerInspectorPanel.Visibility = Visibility.Collapsed; return; }
             DwellerInspectorPanel.Visibility = Visibility.Visible;
-            DwellerName.Text    = dweller.Data.DisplayName;
-            DwellerRarity.Text  = $"Rarity: {dweller.Data.Rarity}";
-            DwellerSpecial.Text = $"S:{dweller.Data.S} P:{dweller.Data.P} E:{dweller.Data.E}\nC:{dweller.Data.C} I:{dweller.Data.I} A:{dweller.Data.A} L:{dweller.Data.L}";
+            DwellerName.Text    = d.Data.DisplayName;
+            DwellerRarity.Text  = $"Rarity: {d.Data.RarityEnum}";
+            DwellerSpecial.Text = $"S:{d.Data.S} P:{d.Data.P} E:{d.Data.E}\nC:{d.Data.C} I:{d.Data.I} A:{d.Data.A} L:{d.Data.L}\nAP: {d.ActionPoints}/{d.MaxActionPoints}";
         }
 
         private void DwellerRemove_Click(object sender, RoutedEventArgs e)
         {
-            var selectedDweller = _dwellerController.Selected;
-            if (selectedDweller == null) return;
-            _dwellerController.Remove(selectedDweller);
+            var sel = _dwellerLayer.Selected;
+            if (sel == null) return;
+            _dwellerLayer.Remove(sel);
             DwellerInspectorPanel.Visibility = Visibility.Collapsed;
         }
 
+        // ── Asset panel ───────────────────────────────────────────────
+
         private void Asset_Add_Click(object sender, RoutedEventArgs e)
         {
-            var ofd = new OpenFileDialog { Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp" };
-            if (ofd.ShowDialog() == true)
-            {
-                if (AssetRegistry.AddTexture(ofd.FileName))
+            var dlg = new OpenFileDialog { Filter = "Image Files|*.png;*.jpg;*.jpeg;*.bmp" };
+            if (dlg.ShowDialog() == true)
+                if (AssetRegistry.AddTexture(dlg.FileName))
                     AssetListBox.ItemsSource = AssetRegistry.TextureNames.ToList();
-            }
         }
 
         private void Asset_Remove_Click(object sender, RoutedEventArgs e)
         {
-            if (sender is Button btn && btn.Tag is string name)
+            if (sender is Button { Tag: string name })
             {
                 AssetRegistry.RemoveTexture(name);
                 AssetListBox.ItemsSource = AssetRegistry.TextureNames.ToList();
             }
         }
 
-        // ══ Palette ════════════════════════════════════════════════════
+        // ── Palette ───────────────────────────────────────────────────
 
         private void BuildPalette()
         {
             PalettePanel.Children.Clear();
             foreach (var kv in TileRegistry.All)
                 PalettePanel.Children.Add(MakePaletteButton(kv.Key, kv.Value));
-            SelectPaletteButton(_activeTileName);
+            SelectPaletteButton(_activeTile);
         }
 
-        private Border MakePaletteButton(string tileName, TileDefinition def)
+        private Border MakePaletteButton(string name, TileDefinition def)
         {
             var swatch = new Rectangle { Width = 16, Height = 16, Fill = def.TopBrush, Margin = new Thickness(0, 0, 8, 0) };
-            var label  = new TextBlock  { Text = tileName, Foreground = Brushes.White, FontFamily = new FontFamily("Consolas"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
+            var label  = new TextBlock  { Text = name, Foreground = Brushes.White, FontFamily = new FontFamily("Consolas"), FontSize = 12, VerticalAlignment = VerticalAlignment.Center };
             var row    = new StackPanel { Orientation = Orientation.Horizontal };
             row.Children.Add(swatch);
             row.Children.Add(label);
 
             if (def.IsCustom)
             {
-                var del = new TextBlock { Text = " ✕", Foreground = new SolidColorBrush(Color.FromRgb(255, 80, 80)),
+                var del = new TextBlock
+                {
+                    Text = " ✕", Foreground = new SolidColorBrush(Color.FromRgb(255, 80, 80)),
                     FontFamily = new FontFamily("Consolas"), FontSize = 11,
-                    VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand, Margin = new Thickness(6, 0, 0, 0) };
-                del.MouseLeftButtonDown += (s, e) => { e.Handled = true; RemoveCustomTile(tileName); };
+                    VerticalAlignment = VerticalAlignment.Center, Cursor = Cursors.Hand, Margin = new Thickness(6, 0, 0, 0)
+                };
+                del.MouseLeftButtonDown += (s, e) => { e.Handled = true; RemoveCustomTile(name); };
                 row.Children.Add(del);
             }
 
-            var border = new Border { Style = (Style)Application.Current.Resources["PaletteBtn"], BorderBrush = Brushes.Transparent, Child = row, Tag = tileName };
-            border.MouseLeftButtonDown += (s, e) => { _activeTileName = tileName; _isDwellerPlacementMode = false; SelectPaletteButton(tileName); };
+            var border = new Border
+            {
+                Style = (Style)Application.Current.Resources["PaletteBtn"],
+                BorderBrush = Brushes.Transparent, Child = row, Tag = name
+            };
+            border.MouseLeftButtonDown += (_, _) =>
+            {
+                _activeTile          = name;
+                _dwellerPlacementMode = false;
+                SelectPaletteButton(name);
+            };
             return border;
         }
 
@@ -213,273 +227,260 @@ namespace IsometricWPF
         private void RemoveCustomTile(string name)
         {
             TileRegistry.Remove(name);
-            if (_activeTileName == name) _activeTileName = "Grass";
+            if (_activeTile == name) _activeTile = "Grass";
             BuildPalette();
         }
 
-        // ══ Mini-map ═══════════════════════════════════════════════════
+        // ── Minimap ───────────────────────────────────────────────────
 
         private void RenderMiniMap()
         {
             MiniMap.Children.Clear();
+            _minimapRects.Clear();
             if (_worldMap == null) return;
-            
-            double tileWidth  = MINIMAP_WIDTH  / _worldMap.Columns;
-            double tileHeight = MINIMAP_HEIGHT / _worldMap.Rows;
-            
+
+            double tw = MINIMAP_W / _worldMap.Columns;
+            double th = MINIMAP_H / _worldMap.Rows;
+
             for (int x = 0; x < _worldMap.Columns; x++)
+            for (int y = 0; y < _worldMap.Rows; y++)
             {
-                for (int y = 0; y < _worldMap.Rows; y++)
-                {
-                    var cell = _worldMap[x, y];
-                    int maxHeight = -1;
-                    foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-                    
-                    string topBlockName = maxHeight >= 0 ? cell.Blocks[maxHeight] : "Grass";
-                    var brush = TileRegistry.Get(topBlockName).TopBrush;
-                    
-                    var rect = new Rectangle 
-                    { 
-                        Width = tileWidth + 0.6, 
-                        Height = tileHeight + 0.6, 
-                        Fill = brush 
-                    };
-                    Canvas.SetLeft(rect, x * tileWidth); 
-                    Canvas.SetTop(rect, y * tileHeight);
-                    MiniMap.Children.Add(rect);
-                }
+                var brush = TopBrushForCell(_worldMap[x, y]);
+                var rect  = new Rectangle { Width = tw + 0.6, Height = th + 0.6, Fill = brush };
+                Canvas.SetLeft(rect, x * tw);
+                Canvas.SetTop(rect,  y * th);
+                MiniMap.Children.Add(rect);
+
+                // Bug #8 fix: store reference in dictionary for O(1) partial updates
+                _minimapRects[(x, y)] = rect;
             }
         }
 
         private void UpdateMiniMapViewport()
         {
             if (_worldMap == null) return;
-            
-            double mapPixelWidth  = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileWidth / 2.0);
-            double mapPixelHeight = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileHeight / 2.0);
-            
-            double visibleWidth  = ViewportGrid.ActualWidth  / _cameraZoom;
-            double visibleHeight = ViewportGrid.ActualHeight / _cameraZoom;
-            
-            double viewportX = -CameraPan.X / _cameraZoom;
-            double viewportY = -CameraPan.Y / _cameraZoom;
-            
-            Canvas.SetLeft(MiniMapViewport, Math.Max(0, (viewportX / mapPixelWidth + 0.5) * MINIMAP_WIDTH));
-            Canvas.SetTop( MiniMapViewport, Math.Max(0, (viewportY / mapPixelHeight + 0.5) * MINIMAP_HEIGHT));
-            
-            MiniMapViewport.Width  = Math.Clamp(visibleWidth / mapPixelWidth * MINIMAP_WIDTH, 4, MINIMAP_WIDTH);
-            MiniMapViewport.Height = Math.Clamp(visibleHeight / mapPixelHeight * MINIMAP_HEIGHT, 4, MINIMAP_HEIGHT);
+
+            double mapPxW = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileWidth  / 2.0);
+            double mapPxH = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileHeight / 2.0);
+            double visW   = ViewportGrid.ActualWidth  / _zoom;
+            double visH   = ViewportGrid.ActualHeight / _zoom;
+            double vpX    = -CameraPan.X / _zoom;
+            double vpY    = -CameraPan.Y / _zoom;
+
+            Canvas.SetLeft(MiniMapViewport, Math.Max(0, (vpX / mapPxW + 0.5) * MINIMAP_W));
+            Canvas.SetTop( MiniMapViewport, Math.Max(0, (vpY / mapPxH + 0.5) * MINIMAP_H));
+            MiniMapViewport.Width  = Math.Clamp(visW / mapPxW * MINIMAP_W, 4, MINIMAP_W);
+            MiniMapViewport.Height = Math.Clamp(visH / mapPxH * MINIMAP_H, 4, MINIMAP_H);
 
             UpdateRendererViewport();
         }
 
-        // ══ Hover ══════════════════════════════════════════════════════
-
-        private void OnTileHovered(int gridX, int gridY)
+        private void UpdateMiniMapPartial(int x, int y)
         {
-            if (!AppConfig.Instance.EditorEnabled) return;
-            HoverCursor.Points     = _worldRenderer.GetDiamondPoints(gridX, gridY);
-            HoverCursor.Visibility = Visibility.Visible;
-
-            // Change cursor color if invalid move when a dweller is selected
-            if (_dwellerController.Selected != null)
-            {
-                bool isValid = _dwellerController.IsValidMove(gridX, gridY);
-                HoverCursor.Stroke = isValid ? Brushes.LightGreen : Brushes.Red;
-                HoverCursor.Fill   = isValid ? new SolidColorBrush(Color.FromArgb(40, 0, 255, 0)) : new SolidColorBrush(Color.FromArgb(40, 255, 0, 0));
-            }
-            else
-            {
-                HoverCursor.Stroke = Brushes.White;
-                HoverCursor.Fill   = new SolidColorBrush(Color.FromArgb(24, 255, 255, 255));
-            }
+            if (_minimapRects.TryGetValue((x, y), out var rect))
+                rect.Fill = TopBrushForCell(_worldMap[x, y]);
         }
 
-        private void OnTileHoverLeft(int gridX, int gridY) => HoverCursor.Visibility = Visibility.Hidden;
-
-        private void SnapSelectionCursor(int gridX, int gridY)
+        private static Brush TopBrushForCell(TileCell cell)
         {
-            if (gridX < 0 || _worldMap == null || !AppConfig.Instance.EditorEnabled)
+            string? top = cell.TopBlockName;
+            return top != null ? TileRegistry.Get(top).TopBrush : TileRegistry.Get("Grass").TopBrush;
+        }
+
+        // ── Hover cursors ─────────────────────────────────────────────
+
+        private void OnTileHovered(int gx, int gy)
+        {
+            if (!AppConfig.Instance.EditorEnabled) return;
+            HoverCursor.Points     = _renderer.GetDiamondPoints(gx, gy);
+            HoverCursor.Visibility = Visibility.Visible;
+
+            bool hasSel  = _dwellerLayer.Selected != null;
+            bool isValid = hasSel && _dwellerLayer.IsValidMove(gx, gy);
+            HoverCursor.Stroke = hasSel ? (isValid ? Brushes.LightGreen : Brushes.Red) : Brushes.White;
+            HoverCursor.Fill   = hasSel
+                ? (isValid
+                    ? new SolidColorBrush(Color.FromArgb(40, 0, 255, 0))
+                    : new SolidColorBrush(Color.FromArgb(40, 255, 0, 0)))
+                : new SolidColorBrush(Color.FromArgb(24, 255, 255, 255));
+        }
+
+        private void OnTileHoverLeft(int gx, int gy) => HoverCursor.Visibility = Visibility.Hidden;
+
+        private void SnapSelectionCursor(int gx, int gy)
+        {
+            if (gx < 0 || _worldMap == null || !AppConfig.Instance.EditorEnabled)
             {
                 SelectionCursor.Visibility = Visibility.Hidden;
                 return;
             }
-            SelectionCursor.Points     = _worldRenderer.GetDiamondPoints(gridX, gridY);
+            SelectionCursor.Points     = _renderer.GetDiamondPoints(gx, gy);
             SelectionCursor.Visibility = Visibility.Visible;
         }
 
-        // ══ Coordinate helper ══════════════════════════════════════════
+        // ── Coordinate helpers ────────────────────────────────────────
 
-        private Point ViewportToWorld(Point screenPoint)
+        private Point ViewportToWorld(Point screen)
         {
-            var transform = TransformCanvas.TransformToAncestor((Visual)TransformCanvas.Parent).Inverse;
-            return transform?.Transform(screenPoint) ?? screenPoint;
+            var inverse = TransformCanvas.TransformToAncestor((Visual)TransformCanvas.Parent).Inverse;
+            return inverse?.Transform(screen) ?? screen;
         }
 
-        // ══ Mouse events ═══════════════════════════════════════════════
+        // ── Mouse events ──────────────────────────────────────────────
 
         private void Viewport_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
         {
-            var mousePosition = e.GetPosition(ViewportGrid);
-            var worldPoint = ViewportToWorld(mousePosition);
-            
-            _worldRenderer.ScreenToTile(_worldMap, worldPoint.X, worldPoint.Y, out int gridX, out int gridY);
-            if (!_worldMap.IsInBounds(gridX, gridY)) return;
+            var world = ViewportToWorld(e.GetPosition(ViewportGrid));
+            _renderer.ScreenToTile(_worldMap, world.X, world.Y, out int gx, out int gy);
+            if (!_worldMap.IsInBounds(gx, gy)) return;
 
-            // Shift held: Place decor
+            // Shift+Click: place decor of the active tile type
             if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
             {
-                _worldMap[gridX, gridY].AddDecor("Grass"); // Placeholder decor
-                _worldRenderer.Redraw();
+                // Bug #4 fix: use _activeTile instead of hardcoded "Grass"
+                _worldMap[gx, gy].AddDecor(_activeTile);
+                _renderer.Redraw();
                 return;
             }
 
             // Dweller placement mode
-            if (_isDwellerPlacementMode)
+            if (_dwellerPlacementMode)
             {
-                var dwellerData = DwellerRegistry.GetByIndex(DwellerPicker.SelectedIndex);
-                if (dwellerData != null)
-                {
-                    var dwellerInstance = new DwellerInstance(dwellerData, gridX, gridY);
-                    _dwellerController.Add(dwellerInstance);
-                }
-                _isDwellerPlacementMode = false;
+                var data = DwellerRegistry.GetByIndex(DwellerPicker.SelectedIndex);
+                if (data != null) _dwellerLayer.Add(new DwellerInstance(data, gx, gy));
+                _dwellerPlacementMode = false;
                 UpdateCameraLabel();
                 return;
             }
 
-            // Try to select/move dweller
-            bool consumed = _dwellerController.HandleTileClick(gridX, gridY, AppConfig.Instance.EditorEnabled);
+            // Try dweller click / move
+            bool consumed = _dwellerLayer.HandleTileClick(gx, gy);
             if (consumed)
             {
-                UpdateDwellerInspector(_dwellerController.Selected);
+                UpdateDwellerInspector(_dwellerLayer.Selected);
                 return;
             }
 
             if (!AppConfig.Instance.EditorEnabled) return;
 
-            // Editor mode: Place block
-            _worldMap[gridX, gridY].AddBlock(_activeTileName);
-            _selectedGridX = gridX; 
-            _selectedGridY = gridY;
-            
-            _worldRenderer.Redraw();
-            SnapSelectionCursor(gridX, gridY);
-            UpdateInspector(gridX, gridY);
-            UpdateMiniMapPartial(gridX, gridY);
+            // Place block
+            _worldMap[gx, gy].AddBlock(_activeTile);
+            _selectedX = gx; _selectedY = gy;
+            _renderer.Redraw();
+            SnapSelectionCursor(gx, gy);
+            UpdateInspector(gx, gy);
+            UpdateMiniMapPartial(gx, gy);
         }
 
         private void Viewport_MouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            _isCameraPanning = true;
-            _lastMousePosition = e.GetPosition(this);
+            _isPanning    = true;
+            _lastMousePos = e.GetPosition(this);
             CaptureMouse();
             Cursor = Cursors.SizeAll;
 
-            // Right click + Shift: Remove decor/block
+            // Shift+RightClick: remove decor/block
             if (Keyboard.IsKeyDown(Key.LeftShift) || Keyboard.IsKeyDown(Key.RightShift))
             {
-                var worldPoint = ViewportToWorld(e.GetPosition(ViewportGrid));
-                _worldRenderer.ScreenToTile(_worldMap, worldPoint.X, worldPoint.Y, out int gridX, out int gridY);
-                
-                if (_worldMap.IsInBounds(gridX, gridY))
+                var world = ViewportToWorld(e.GetPosition(ViewportGrid));
+                _renderer.ScreenToTile(_worldMap, world.X, world.Y, out int gx, out int gy);
+                if (_worldMap.IsInBounds(gx, gy))
                 {
-                    var cell = _worldMap[gridX, gridY];
+                    var cell = _worldMap[gx, gy];
                     if (cell.Decors.Count > 0) cell.ClearDecors();
-                    else cell.RemoveBlock();
-                    
-                    _worldRenderer.Redraw();
-                    UpdateMiniMapPartial(gridX, gridY);
+                    else                       cell.RemoveBlock();
+                    _renderer.Redraw();
+                    UpdateMiniMapPartial(gx, gy);
                 }
             }
         }
 
         private void Viewport_MouseMove(object sender, MouseEventArgs e)
         {
-            var currentPos = e.GetPosition(ViewportGrid);
-
-            if (_isCameraPanning)
+            if (_isPanning)
             {
-                var mousePos = e.GetPosition(this);
-                var delta = mousePos - _lastMousePosition;
-                
-                double newPanX = CameraPan.X + delta.X;
-                double newPanY = CameraPan.Y + delta.Y;
+                var cur   = e.GetPosition(this);
+                var delta = cur - _lastMousePos;
 
-                // Apply camera bounds if enabled
+                double nx = CameraPan.X + delta.X;
+                double ny = CameraPan.Y + delta.Y;
+
                 if (AppConfig.Instance.LimitCamera && _worldMap != null)
                 {
-                    double mapWidthPx = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileWidth / 2.0);
-                    double mapHeightPx = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileHeight / 2.0);
-                    double margin = AppConfig.Instance.CameraMargin;
-
-                    newPanX = Math.Clamp(newPanX, -mapWidthPx / 2 - margin, mapWidthPx / 2 + margin);
-                    newPanY = Math.Clamp(newPanY, -margin, mapHeightPx + margin);
+                    double mw = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileWidth  / 2.0);
+                    double mh = (_worldMap.Columns + _worldMap.Rows) * (AppConfig.Instance.TileHeight / 2.0);
+                    double mg = AppConfig.Instance.CameraMargin;
+                    nx = Math.Clamp(nx, -mw / 2 - mg, mw / 2 + mg);
+                    ny = Math.Clamp(ny, -mg, mh + mg);
                 }
 
-                CameraPan.X = newPanX;
-                CameraPan.Y = newPanY;
-                
-                _lastMousePosition = mousePos;
+                CameraPan.X    = nx;
+                CameraPan.Y    = ny;
+                _lastMousePos  = cur;
                 UpdateCameraLabel();
                 UpdateMiniMapViewport();
             }
             else
             {
-                // Math-based hover (no per-tile hit testing)
-                var worldPt = ViewportToWorld(currentPos);
-                _worldRenderer.OnMouseMove(worldPt);
+                _renderer.OnMouseMove(ViewportToWorld(e.GetPosition(ViewportGrid)));
             }
         }
 
         private void Viewport_MouseRightButtonUp(object sender, MouseButtonEventArgs e)
         {
-            _isCameraPanning = false; 
-            Cursor = Cursors.Arrow; 
+            _isPanning = false;
+            Cursor     = Cursors.Arrow;
             ReleaseMouseCapture();
         }
 
         private void Viewport_MouseLeave(object sender, MouseEventArgs e)
         {
-            _worldRenderer.OnMouseLeave();
+            _renderer.OnMouseLeave();
             HoverCursor.Visibility = Visibility.Hidden;
         }
 
         private void Viewport_MouseWheel(object sender, MouseWheelEventArgs e)
         {
-            double factor  = e.Delta > 0 ? 1.12 : 0.893;
-            double oldZoom = _cameraZoom;
-            _cameraZoom          = Math.Clamp(_cameraZoom * factor, ZOOM_MINIMUM, ZOOM_MAXIMUM);
-            
-            AppConfig.Instance.DefaultZoom = _cameraZoom;
-            AppConfig.Save();
+            double factor   = e.Delta > 0 ? 1.12 : 0.893;
+            double oldZoom  = _zoom;
+            _zoom           = Math.Clamp(_zoom * factor, ZOOM_MIN, ZOOM_MAX);
+            double ratio    = _zoom / oldZoom;
+            var    mouse    = e.GetPosition(ViewportGrid);
 
-            double ratio   = _cameraZoom / oldZoom;
-            var mouse      = e.GetPosition(ViewportGrid);
-            CameraPan.X    = mouse.X + (CameraPan.X - mouse.X) * ratio;
-            CameraPan.Y    = mouse.Y + (CameraPan.Y - mouse.Y) * ratio;
-            CameraScale.ScaleX = CameraScale.ScaleY = _cameraZoom;
+            CameraPan.X = mouse.X + (CameraPan.X - mouse.X) * ratio;
+            CameraPan.Y = mouse.Y + (CameraPan.Y - mouse.Y) * ratio;
+            CameraScale.ScaleX = CameraScale.ScaleY = _zoom;
+
+            AppConfig.Instance.DefaultZoom = _zoom;
+            // Bug #9 fix: debounce so rapid scrolling doesn't hammer the disk
+            AppConfig.SaveDebounced();
+
             UpdateCameraLabel();
             UpdateMiniMapViewport();
         }
 
-        // ══ Keyboard ═══════════════════════════════════════════════════
+        // ── Keyboard ──────────────────────────────────────────────────
 
         private void Window_KeyDown(object sender, KeyEventArgs e)
         {
             switch (e.Key)
             {
-                case Key.R:        Camera_Reset(null, null); break;
-                case Key.G:        BtnGrid.IsChecked    = !BtnGrid.IsChecked;    Toggle_Grid(null, null);    break;
-                case Key.H:        BtnHeights.IsChecked = !BtnHeights.IsChecked; Toggle_Heights(null, null); break;
-                case Key.E:        BtnEditorMode.IsChecked = !BtnEditorMode.IsChecked; Toggle_EditorMode(null, null); break;
-                case Key.Escape:   _isDwellerPlacementMode = false; _dwellerController.Deselect(); UpdateDwellerInspector(null); UpdateCameraLabel(); break;
-                case Key.OemPlus:  case Key.Add:      HeightBrush_Inc(null, null); break;
-                case Key.OemMinus: case Key.Subtract: HeightBrush_Dec(null, null); break;
+                case Key.R: Camera_Reset(null!, null!); break;
+                case Key.G: BtnGrid.IsChecked    = !BtnGrid.IsChecked;    Toggle_Grid(null!, null!);    break;
+                case Key.H: BtnHeights.IsChecked = !BtnHeights.IsChecked; Toggle_Heights(null!, null!); break;
+                case Key.E: BtnEditorMode.IsChecked = !BtnEditorMode.IsChecked; Toggle_EditorMode(null!, null!); break;
+                case Key.Escape:
+                    _dwellerPlacementMode = false;
+                    _dwellerLayer.Deselect();
+                    UpdateDwellerInspector(null);
+                    UpdateCameraLabel();
+                    break;
+                case Key.OemPlus:  case Key.Add:      HeightBrush_Inc(null!, null!); break;
+                case Key.OemMinus: case Key.Subtract: HeightBrush_Dec(null!, null!); break;
             }
         }
 
-        // ══ Toolbar ════════════════════════════════════════════════════
+        // ── Toolbar handlers ──────────────────────────────────────────
 
         private void File_New(object sender, RoutedEventArgs e)
         {
@@ -495,7 +496,7 @@ namespace IsometricWPF
             if (ok)
             {
                 LoadWorld(map);
-                foreach (var dwellerInstance in dwellers) _dwellerController.Add(dwellerInstance);
+                foreach (var d in dwellers) _dwellerLayer.Add(d);
                 BuildPalette();
             }
             else MessageBox.Show($"Import failed:\n{error}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -504,29 +505,27 @@ namespace IsometricWPF
         private void File_Export(object sender, RoutedEventArgs e)
         {
             var dlg = new SaveFileDialog { Title = "Export map", Filter = "World files|*.world.json", DefaultExt = "world.json" };
-            if (dlg.ShowDialog() != true) return;
-            MapSerializer.Export(_worldMap, _dwellerController.Dwellers, dlg.FileName);
+            if (dlg.ShowDialog() == true) MapSerializer.Export(_worldMap, _dwellerLayer.Dwellers, dlg.FileName);
         }
 
-        private void Preset_Island(object sender, RoutedEventArgs e)    => LoadWorld(WorldMap.GenerateIsland(_worldMap?.Columns ?? 200, _worldMap?.Rows ?? 200));
+        private void Preset_Island(object sender, RoutedEventArgs e)    => LoadWorld(WorldMap.GenerateIsland(_worldMap?.Columns ?? 40, _worldMap?.Rows ?? 40));
         private void Preset_Wasteland(object sender, RoutedEventArgs e) => LoadWorld(WorldMap.GenerateWasteland(_worldMap?.Columns ?? 40, _worldMap?.Rows ?? 40));
         private void Preset_Clear(object sender, RoutedEventArgs e)     => LoadWorld(new WorldMap(_worldMap?.Columns ?? 40, _worldMap?.Rows ?? 40));
 
         private void Toggle_Grid(object sender, RoutedEventArgs e)
         {
-            _worldRenderer.ShowGrid = BtnGrid.IsChecked == true;
-            AppConfig.Instance.ShowGrid = BtnGrid.IsChecked == true;
+            _renderer.ShowGrid = BtnGrid.IsChecked == true;
+            AppConfig.Instance.ShowGrid = _renderer.ShowGrid;
             AppConfig.Save();
-            if (_selectedGridX >= 0) SnapSelectionCursor(_selectedGridX, _selectedGridY);
         }
 
         private void Toggle_Heights(object sender, RoutedEventArgs e)
         {
-            _worldRenderer.ShowHeights = BtnHeights.IsChecked == true;
-            AppConfig.Instance.ShowHeights = BtnHeights.IsChecked == true;
+            _renderer.ShowHeights = BtnHeights.IsChecked == true;
+            AppConfig.Instance.ShowHeights = _renderer.ShowHeights;
             AppConfig.Save();
-            _dwellerController.RefreshPositions();
-            if (_selectedGridX >= 0) SnapSelectionCursor(_selectedGridX, _selectedGridY);
+            _dwellerLayer.RefreshPositions();
+            if (_selectedX >= 0) SnapSelectionCursor(_selectedX, _selectedY);
         }
 
         private void Toggle_EditorMode(object sender, RoutedEventArgs e)
@@ -538,21 +537,23 @@ namespace IsometricWPF
 
         private void Camera_Reset(object sender, RoutedEventArgs e)
         {
-            _cameraZoom = 1.0; CameraScale.ScaleX = CameraScale.ScaleY = 1.0;
+            _zoom = 1.0;
+            CameraScale.ScaleX = CameraScale.ScaleY = 1.0;
             CameraPan.X = 450; CameraPan.Y = 120;
-            UpdateCameraLabel(); UpdateMiniMapViewport();
+            UpdateCameraLabel();
+            UpdateMiniMapViewport();
         }
 
         private void HeightBrush_Inc(object sender, RoutedEventArgs e)
         {
-            _activeHeightBrush = Math.Min(_activeHeightBrush + 1, 6);
-            HeightBrushLabel.Text = _activeHeightBrush.ToString();
+            int h = int.TryParse(HeightBrushLabel.Text, out int v) ? v : 0;
+            HeightBrushLabel.Text = Math.Min(h + 1, AppConfig.Instance.MaxStackHeight - 1).ToString();
         }
 
         private void HeightBrush_Dec(object sender, RoutedEventArgs e)
         {
-            _activeHeightBrush = Math.Max(_activeHeightBrush - 1, 0);
-            HeightBrushLabel.Text = _activeHeightBrush.ToString();
+            int h = int.TryParse(HeightBrushLabel.Text, out int v) ? v : 0;
+            HeightBrushLabel.Text = Math.Max(h - 1, 0).ToString();
         }
 
         private void Palette_AddCustomTile(object sender, RoutedEventArgs e)
@@ -561,29 +562,26 @@ namespace IsometricWPF
             if (dlg.ShowDialog() != true) return;
             TileRegistry.Register(dlg.TileName, dlg.TopColor, dlg.LeftColor, dlg.RightColor, isCustom: true);
             BuildPalette();
-            _activeTileName = dlg.TileName;
+            _activeTile = dlg.TileName;
             SelectPaletteButton(dlg.TileName);
         }
 
-        // ══ Inspector ══════════════════════════════════════════════════
+        // ── Inspector ─────────────────────────────────────────────────
 
-        private void UpdateInspector(int gridX, int gridY)
+        private void UpdateInspector(int gx, int gy)
         {
-            var cell = _worldMap[gridX, gridY];
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            
-            InspectorCoords.Text = $"Tile ({gridX}, {gridY})";
-            InspectorType.Text   = maxHeight >= 0 ? cell.Blocks[maxHeight] : "Empty";
+            var cell = _worldMap[gx, gy];
+            InspectorCoords.Text = $"Tile ({gx}, {gy})";
+            InspectorType.Text   = cell.TopBlockName ?? "Empty";
             InspectorHeight.Text = $" {cell.Blocks.Count} ";
-            
-            // Texture labels - with the new block system, we show the topmost block's texture info
-            if (maxHeight >= 0)
+
+            string? top = cell.TopBlockName;
+            if (top != null)
             {
-                var topBlockDef = TileRegistry.Get(cell.Blocks[maxHeight]);
-                TextureTopLabel.Text   = topBlockDef.TopTexturePath   ?? "(default)";
-                TextureLeftLabel.Text  = topBlockDef.LeftTexturePath  ?? "(default)";
-                TextureRightLabel.Text = topBlockDef.RightTexturePath ?? "(default)";
+                var def = TileRegistry.Get(top);
+                TextureTopLabel.Text   = def.TopTexturePath   ?? "(default)";
+                TextureLeftLabel.Text  = def.LeftTexturePath  ?? "(default)";
+                TextureRightLabel.Text = def.RightTexturePath ?? "(default)";
             }
             else
             {
@@ -594,131 +592,113 @@ namespace IsometricWPF
         private void ClearInspector()
         {
             InspectorCoords.Text = "No tile selected";
-            InspectorType.Text   = "";
-            InspectorHeight.Text = "";
+            InspectorType.Text   = InspectorHeight.Text = "";
             TextureTopLabel.Text = TextureLeftLabel.Text = TextureRightLabel.Text = "(default)";
         }
 
         private void Inspector_HeightInc(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            _worldMap[_selectedGridX, _selectedGridY].AddBlock(_activeTileName);
+            if (_selectedX < 0) return;
+            _worldMap[_selectedX, _selectedY].AddBlock(_activeTile);
             RefreshSelected();
         }
 
         private void Inspector_HeightDec(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            _worldMap[_selectedGridX, _selectedGridY].RemoveBlock();
+            if (_selectedX < 0) return;
+            _worldMap[_selectedX, _selectedY].RemoveBlock();
             RefreshSelected();
         }
 
         private void RefreshSelected()
         {
-            _worldRenderer.Redraw();
-            _dwellerController.RefreshPositions();
-            SnapSelectionCursor(_selectedGridX, _selectedGridY);
-            UpdateInspector(_selectedGridX, _selectedGridY);
+            _renderer.Redraw();
+            _dwellerLayer.RefreshPositions();
+            SnapSelectionCursor(_selectedX, _selectedY);
+            UpdateInspector(_selectedX, _selectedY);
         }
+
+        // ── Texture scope ─────────────────────────────────────────────
 
         private void TextureScope_Changed(object sender, RoutedEventArgs e)
         {
             bool isCell = sender == BtnScopeCell;
-            _isTextureScopeCell    = isCell;
             BtnScopeType.IsChecked = !isCell;
             BtnScopeCell.IsChecked = isCell;
             TextureScopeHint.Text  = isCell ? "Applies to this tile only" : "Applies to all tiles of this type";
-            if (_selectedGridX >= 0) UpdateInspector(_selectedGridX, _selectedGridY);
+            if (_selectedX >= 0) UpdateInspector(_selectedX, _selectedY);
         }
 
         private void Texture_TopBrowse(object sender, RoutedEventArgs e)
-            => BrowseTexture(path => { 
-                if (_selectedGridX < 0) return;
-                var cell = _worldMap[_selectedGridX, _selectedGridY];
-                int maxHeight = -1;
-                foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-                if (maxHeight < 0) return;
-                string blockName = cell.Blocks[maxHeight];
-                TileRegistry.Get(blockName).SetTopTexture(path); 
-                _worldRenderer.InvalidateBrushCache();
-                _worldRenderer.Redraw(); 
-                UpdateInspector(_selectedGridX, _selectedGridY); 
+            => BrowseTexture(path =>
+            {
+                string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+                if (top == null) return;
+                TileRegistry.Get(top).SetTopTexture(path);
+                _renderer.InvalidateBrushCache();
+                _renderer.Redraw();
+                UpdateInspector(_selectedX, _selectedY);
             });
 
         private void Texture_LeftBrowse(object sender, RoutedEventArgs e)
-            => BrowseTexture(path => { 
-                if (_selectedGridX < 0) return;
-                var cell = _worldMap[_selectedGridX, _selectedGridY];
-                int maxHeight = -1;
-                foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-                if (maxHeight < 0) return;
-                string blockName = cell.Blocks[maxHeight];
-                TileRegistry.Get(blockName).SetLeftTexture(path); 
-                _worldRenderer.InvalidateBrushCache();
-                _worldRenderer.Redraw(); 
-                UpdateInspector(_selectedGridX, _selectedGridY); 
+            => BrowseTexture(path =>
+            {
+                string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+                if (top == null) return;
+                TileRegistry.Get(top).SetLeftTexture(path);
+                _renderer.InvalidateBrushCache();
+                _renderer.Redraw();
+                UpdateInspector(_selectedX, _selectedY);
             });
 
         private void Texture_RightBrowse(object sender, RoutedEventArgs e)
-            => BrowseTexture(path => { 
-                if (_selectedGridX < 0) return;
-                var cell = _worldMap[_selectedGridX, _selectedGridY];
-                int maxHeight = -1;
-                foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-                if (maxHeight < 0) return;
-                string blockName = cell.Blocks[maxHeight];
-                TileRegistry.Get(blockName).SetRightTexture(path); 
-                _worldRenderer.InvalidateBrushCache();
-                _worldRenderer.Redraw(); 
-                UpdateInspector(_selectedGridX, _selectedGridY); 
+            => BrowseTexture(path =>
+            {
+                string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+                if (top == null) return;
+                TileRegistry.Get(top).SetRightTexture(path);
+                _renderer.InvalidateBrushCache();
+                _renderer.Redraw();
+                UpdateInspector(_selectedX, _selectedY);
             });
 
         private void Texture_TopClear(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            var cell = _worldMap[_selectedGridX, _selectedGridY];
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            if (maxHeight < 0) return;
-            TileRegistry.Get(cell.Blocks[maxHeight]).SetTopTexture(null);
-            _worldRenderer.InvalidateBrushCache();
+            string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+            if (top == null) return;
+            TileRegistry.Get(top).SetTopTexture(null);
+            _renderer.InvalidateBrushCache();
             RefreshSelected();
         }
 
         private void Texture_LeftClear(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            var cell = _worldMap[_selectedGridX, _selectedGridY];
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            if (maxHeight < 0) return;
-            TileRegistry.Get(cell.Blocks[maxHeight]).SetLeftTexture(null);
-            _worldRenderer.InvalidateBrushCache();
+            string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+            if (top == null) return;
+            TileRegistry.Get(top).SetLeftTexture(null);
+            _renderer.InvalidateBrushCache();
             RefreshSelected();
         }
 
         private void Texture_RightClear(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            var cell = _worldMap[_selectedGridX, _selectedGridY];
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            if (maxHeight < 0) return;
-            TileRegistry.Get(cell.Blocks[maxHeight]).SetRightTexture(null);
-            _worldRenderer.InvalidateBrushCache();
+            string? top = _worldMap[_selectedX, _selectedY].TopBlockName;
+            if (top == null) return;
+            TileRegistry.Get(top).SetRightTexture(null);
+            _renderer.InvalidateBrushCache();
             RefreshSelected();
         }
 
         private void Texture_ClearAllOverrides(object sender, RoutedEventArgs e)
         {
-            if (_selectedGridX < 0) return;
-            _worldMap[_selectedGridX, _selectedGridY].IsWalkableOverride = null;
+            if (_selectedX < 0) return;
+            _worldMap[_selectedX, _selectedY].IsWalkableOverride = null;
             RefreshSelected();
         }
 
         private void BrowseTexture(Action<string> onPicked)
         {
-            if (_selectedGridX < 0) return;
+            if (_selectedX < 0) return;
             var dlg = new OpenFileDialog { Title = "Select texture", Filter = "Images|*.png;*.jpg;*.jpeg;*.bmp" };
             if (dlg.ShowDialog() == true)
             {
@@ -728,36 +708,13 @@ namespace IsometricWPF
             }
         }
 
-        // ══ Mini-map partial update (single tile) ══════════════════════
-
-        private void UpdateMiniMapPartial(int gridX, int gridY)
-        {
-            if (_worldMap == null) return;
-            
-            double tileWidth  = MINIMAP_WIDTH  / _worldMap.Columns;
-            double tileHeight = MINIMAP_HEIGHT / _worldMap.Rows;
-            
-            var cell = _worldMap[gridX, gridY];
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            
-            string topBlockName = maxHeight >= 0 ? cell.Blocks[maxHeight] : "Grass";
-            var brush = TileRegistry.Get(topBlockName).TopBrush;
-
-            // Find and update the matching rectangle on the minimap
-            int index = gridY + gridX * _worldMap.Rows;
-            if (index < MiniMap.Children.Count && MiniMap.Children[index] is Rectangle rect)
-                rect.Fill = brush;
-        }
-
-        // ══ HUD ════════════════════════════════════════════════════════
+        // ── HUD ───────────────────────────────────────────────────────
 
         private void UpdateCameraLabel()
         {
-            if (_isDwellerPlacementMode)
-                CameraLabel.Text = "📍 Click a tile to place dweller  [Esc = cancel]";
-            else
-                CameraLabel.Text = $"zoom {_cameraZoom:F2}x   pan ({CameraPan.X:F0}, {CameraPan.Y:F0})   {_worldMap?.Columns}×{_worldMap?.Rows}";
+            CameraLabel.Text = _dwellerPlacementMode
+                ? "📍 Click a tile to place dweller  [Esc = cancel]"
+                : $"zoom {_zoom:F2}x   pan ({CameraPan.X:F0}, {CameraPan.Y:F0})   {_worldMap?.Columns}×{_worldMap?.Rows}";
         }
     }
 }

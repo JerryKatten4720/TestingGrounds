@@ -1,23 +1,42 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows;
 
 namespace IsometricWPF.Dwellers
 {
+    /// <summary>
+    /// Manages all dweller instances placed on the map: selection, movement validation, and rendering sync.
+    /// Depends only on <see cref="IsometricRenderer"/> and a <see cref="WorldMap"/> provider — never touches MainWindow.
+    /// </summary>
     public class DwellerLayer
     {
         private readonly List<DwellerInstance> _dwellers = new();
-        private DwellerInstance _selectedDweller;
-        private readonly IsometricRenderer _renderer;
+        private readonly IsometricRenderer     _renderer;
+        private readonly Func<WorldMap?>        _mapProvider;
 
-        public event Action<DwellerInstance>           DwellerSelected;
+        private DwellerInstance? _selected;
+
+        public event Action<DwellerInstance?>          DwellerSelected;
         public event Action<DwellerInstance, int, int> DwellerMoved;
 
         public IReadOnlyList<DwellerInstance> Dwellers => _dwellers;
-        public DwellerInstance Selected => _selectedDweller;
+        public DwellerInstance?               Selected  => _selected;
 
-        public DwellerLayer(IsometricRenderer renderer) => _renderer = renderer;
+        // ── Constructor ───────────────────────────────────────────────
+
+        /// <param name="renderer">The shared isometric renderer.</param>
+        /// <param name="mapProvider">
+        ///   Delegate returning the current WorldMap.
+        ///   Using a delegate (rather than a direct reference) allows the map to be swapped
+        ///   at runtime (e.g. after File → New) without re-creating the DwellerLayer.
+        /// </param>
+        public DwellerLayer(IsometricRenderer renderer, Func<WorldMap?> mapProvider)
+        {
+            _renderer    = renderer;
+            _mapProvider = mapProvider;
+        }
+
+        // ── Dweller management ────────────────────────────────────────
 
         public void Add(DwellerInstance dweller)
         {
@@ -28,71 +47,74 @@ namespace IsometricWPF.Dwellers
         public void Remove(DwellerInstance dweller)
         {
             _dwellers.Remove(dweller);
-            if (_selectedDweller == dweller) _selectedDweller = null;
+            if (_selected == dweller) _selected = null;
             _renderer.LoadDwellers(_dwellers);
         }
 
         public void ClearAll()
         {
             _dwellers.Clear();
-            _selectedDweller = null;
+            _selected = null;
             _renderer.LoadDwellers(_dwellers);
         }
 
+        // ── Validation ────────────────────────────────────────────────
+
+        /// <summary>
+        /// Returns true when <paramref name="gridX"/>, <paramref name="gridY"/> is a legal destination
+        /// for the currently selected dweller: in-bounds, walkable, not occupied by another dweller.
+        /// </summary>
         public bool IsValidMove(int gridX, int gridY)
         {
-            var mainWindow = Application.Current.MainWindow as MainWindow;
-            var map = mainWindow?.World;
+            var map = _mapProvider();
             if (map == null || !map.IsInBounds(gridX, gridY)) return false;
 
             var cell = map[gridX, gridY];
-            
-
             if (cell.Blocks.Count == 0) return false;
 
+            string? top = cell.TopBlockName;
+            if (top == null) return false;
 
-            int maxHeight = -1;
-            foreach (var h in cell.Blocks.Keys) if (h > maxHeight) maxHeight = h;
-            
-            if (maxHeight < 0) return false;
-            
-            string topBlockName = cell.Blocks[maxHeight];
-            bool isWalkable = cell.IsWalkableOverride ?? TileRegistry.Get(topBlockName).IsWalkable;
-            if (!isWalkable) return false;
+            bool walkable = cell.IsWalkableOverride ?? TileRegistry.Get(top).IsWalkable;
+            if (!walkable) return false;
 
-
-            bool isOccupied = _dwellers.Any(dw => dw != _selectedDweller && dw.TileX == gridX && dw.TileY == gridY);
-            return !isOccupied;
+            return !_dwellers.Any(d => d != _selected && d.TileX == gridX && d.TileY == gridY);
         }
 
-        public bool HandleTileClick(int gridX, int gridY, bool isEditorMode)
+        // ── Click handling ────────────────────────────────────────────
+
+        /// <summary>
+        /// Processes a tile click in the context of the current selection state.
+        /// Returns true when the event was fully consumed (move executed or dweller selected/deselected).
+        /// </summary>
+        public bool HandleTileClick(int gridX, int gridY)
         {
-            if (_selectedDweller != null)
+            // If something is selected, attempt a move first
+            if (_selected != null)
             {
                 if (IsValidMove(gridX, gridY))
                 {
-                    MoveDweller(_selectedDweller, gridX, gridY);
+                    MoveDweller(_selected, gridX, gridY);
                     Deselect();
                     return true;
                 }
             }
 
-            var hitDweller = _dwellers.FirstOrDefault(dw => dw.TileX == gridX && dw.TileY == gridY);
-            if (hitDweller != null)
-            {
-                Select(hitDweller);
-                return true;
-            }
+            // Try to select a dweller on the clicked tile
+            var hit = _dwellers.FirstOrDefault(d => d.TileX == gridX && d.TileY == gridY);
+            if (hit != null) { Select(hit); return true; }
 
             Deselect();
             return false;
         }
 
+        // ── Selection ─────────────────────────────────────────────────
+
         public void Select(DwellerInstance dweller)
         {
-            if (_selectedDweller != null) _selectedDweller.State = DwellerState.Idle;
-            _selectedDweller = dweller;
-            dweller.State = DwellerState.Selected;
+            if (_selected != null) _selected.State = DwellerState.Idle;
+            _selected       = dweller;
+            dweller.State   = DwellerState.Selected;
             DwellerVisualFactory.InvalidateCache();
             _renderer.Redraw();
             DwellerSelected?.Invoke(dweller);
@@ -100,12 +122,15 @@ namespace IsometricWPF.Dwellers
 
         public void Deselect()
         {
-            if (_selectedDweller == null) return;
-            _selectedDweller.State = DwellerState.Idle;
-            _selectedDweller = null;
+            if (_selected == null) return;
+            _selected.State = DwellerState.Idle;
+            _selected       = null;
             DwellerVisualFactory.InvalidateCache();
             _renderer.Redraw();
+            DwellerSelected?.Invoke(null);
         }
+
+        // ── Movement ──────────────────────────────────────────────────
 
         public void MoveDweller(DwellerInstance dweller, int newX, int newY)
         {

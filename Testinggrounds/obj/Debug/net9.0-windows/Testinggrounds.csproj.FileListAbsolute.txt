@@ -22,3 +22,4 @@ C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-w
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\NewMapDialog.baml
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\AddTileDialog.g.cs
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\NewMapDialog.g.cs
+C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\Testinggrounds.sourcelink.json
