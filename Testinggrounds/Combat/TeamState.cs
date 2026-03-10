@@ -1,75 +1,52 @@
-using System.Collections.Generic;
-using System.Linq;
+using IsometricWPF.Dwellers;
 
-namespace IsometricWPF.Combat
-{
-    /// <summary>
-    /// Runtime state for one team during a combat session.
-    /// PA (Points d'Action) are shared across the whole team.
-    /// PM (Points de Mouvement) are per-dweller and stored on DwellerInstance.
-    /// </summary>
-    public class TeamState
-    {
-        public int    TeamId      { get; }
-        public string Name        { get; set; }
-        public int    MaxPA       { get; set; } = 6;
-        public int    CurrentPA   { get; set; }
+namespace IsometricWPF.Combat;
 
-        /// <summary>
-        /// The dweller designated as this team's Overseer.
-        /// Eliminating the Overseer ends the game for that team.
-        /// Overseer stats are set to 8 across all SPECIAL at game start.
-        /// </summary>
-        public Dwellers.DwellerInstance? Overseer { get; set; }
+public class TeamState {
+    private readonly HashSet<DwellerInstance> _movedThisTurn = new();
 
-        /// <summary>Tracks which dwellers have already cost 1 PA for movement this turn.</summary>
-        private readonly HashSet<Dwellers.DwellerInstance> _movedThisTurn = new();
+    public TeamState(int teamId, string name) {
+        TeamId = teamId;
+        Name = name;
+        CurrentPA = MaxPA;
+    }
 
-        public TeamState(int teamId, string name)
-        {
-            TeamId    = teamId;
-            Name      = name;
-            CurrentPA = MaxPA;
-        }
+    public int TeamId { get; }
+    public string Name { get; set; }
+    public int MaxPA { get; set; } = 6;
+    public int CurrentPA { get; set; }
 
-        // ── PA helpers ────────────────────────────────────────────────
 
-        public bool CanSpend(int cost) => CurrentPA >= cost;
+    public DwellerInstance? Overseer { get; set; }
 
-        /// <summary>
-        /// Spends PA. Returns false and does nothing if insufficient.
-        /// </summary>
-        public bool SpendPA(int cost)
-        {
-            if (!CanSpend(cost)) return false;
-            CurrentPA -= cost;
-            return true;
-        }
 
-        // ── Movement PA cost (1 PA once per dweller per turn) ─────────
+    public bool IsEliminated => Overseer == null || Overseer.IsDead;
 
-        /// <summary>
-        /// Returns the PA cost of moving <paramref name="dweller"/> this turn.
-        /// First move of a dweller costs 1 PA; subsequent moves on the same turn are free (PA-wise).
-        /// Always costs PM on the dweller itself.
-        /// </summary>
-        public int MovementPACost(Dwellers.DwellerInstance dweller)
-            => _movedThisTurn.Contains(dweller) ? 0 : 1;
 
-        /// <summary>Records that this dweller has moved at least once this turn.</summary>
-        public void RegisterMove(Dwellers.DwellerInstance dweller)
-            => _movedThisTurn.Add(dweller);
+    public bool CanSpend(int cost) {
+        return CurrentPA >= cost;
+    }
 
-        // ── Turn lifecycle ────────────────────────────────────────────
 
-        public void StartTurn()
-        {
-            CurrentPA = MaxPA;
-            _movedThisTurn.Clear();
-        }
+    public bool SpendPA(int cost) {
+        if (!CanSpend(cost)) return false;
+        CurrentPA -= cost;
+        return true;
+    }
 
-        // ── Victory check ─────────────────────────────────────────────
 
-        public bool IsEliminated => Overseer == null || Overseer.IsDead;
+    public int MovementPACost(DwellerInstance dweller) {
+        return _movedThisTurn.Contains(dweller) ? 0 : 1;
+    }
+
+
+    public void RegisterMove(DwellerInstance dweller) {
+        _movedThisTurn.Add(dweller);
+    }
+
+
+    public void StartTurn() {
+        CurrentPA = MaxPA;
+        _movedThisTurn.Clear();
     }
 }

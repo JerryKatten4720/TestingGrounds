@@ -14,57 +14,57 @@
             CornerRadius="10" Margin="8">
         <Grid Margin="20">
             <Grid.RowDefinitions>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
             <!-- Portrait image -->
             <Border Grid.Row="0" Width="120" Height="220"
                     HorizontalAlignment="Center" Margin="0,0,0,16"
                     BorderBrush="#44c8a84b" BorderThickness="1" CornerRadius="4">
-                <Image x:Name="PortraitImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                <Image x:Name="PortraitImage" Stretch="Uniform" RenderOptions.BitmapScalingMode="NearestNeighbor" />
             </Border>
 
             <!-- Name + rarity -->
             <StackPanel Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,8">
                 <TextBlock x:Name="NameLabel" Foreground="#ffffff"
                            FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                           HorizontalAlignment="Center"/>
+                           HorizontalAlignment="Center" />
                 <TextBlock x:Name="RarityLabel" Foreground="#c8a84b"
                            FontFamily="Consolas" FontSize="11"
-                           HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                           HorizontalAlignment="Center" Margin="0,2,0,0" />
             </StackPanel>
 
             <!-- HP + XP bars -->
             <Grid Grid.Row="2" Margin="0,0,0,14">
                 <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
-                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
                 <TextBlock x:Name="HpLabel" Grid.Row="0" Foreground="#ff6b6b"
-                           FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
+                           FontFamily="Consolas" FontSize="10" Margin="0,0,0,2" />
                 <ProgressBar x:Name="HpBar" Grid.Row="1" Height="8" Minimum="0" Maximum="1" Value="1"
                              Margin="0,0,0,8" Background="#33ff0000" BorderThickness="0"
-                             Foreground="#ff6b6b"/>
+                             Foreground="#ff6b6b" />
 
                 <TextBlock x:Name="XpLabel" Grid.Row="2" Foreground="#88c8a84b"
-                           FontFamily="Consolas" FontSize="10" Margin="0,0,0,2"/>
-                <ProgressBar x:Name="XpBar"  Grid.Row="3" Height="6" Minimum="0" Maximum="1" Value="0"
+                           FontFamily="Consolas" FontSize="10" Margin="0,0,0,2" />
+                <ProgressBar x:Name="XpBar" Grid.Row="3" Height="6" Minimum="0" Maximum="1" Value="0"
                              Background="#22c8a84b" BorderThickness="0"
-                             Foreground="#c8a84b"/>
+                             Foreground="#c8a84b" />
             </Grid>
 
             <!-- SPECIAL stats -->
             <Border Grid.Row="3" Background="#1e1e30" CornerRadius="6" Padding="12,10" Margin="0,0,0,14">
                 <TextBlock x:Name="SpecialLabel" Foreground="#aaffffff"
                            FontFamily="Consolas" FontSize="11" LineHeight="20"
-                           HorizontalAlignment="Center"/>
+                           HorizontalAlignment="Center" />
             </Border>
 
             <!-- Backstory -->
@@ -72,7 +72,7 @@
                        Foreground="#667799" FontFamily="Consolas" FontSize="9"
                        FontStyle="Italic" TextWrapping="Wrap"
                        HorizontalAlignment="Center" TextAlignment="Center"
-                       Visibility="Collapsed"/>
+                       Visibility="Collapsed" />
         </Grid>
     </Border>
 </Window>

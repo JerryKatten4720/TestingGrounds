@@ -10,30 +10,30 @@
 
     <Window.Resources>
         <Style x:Key="StatBtn" TargetType="Button">
-            <Setter Property="Width"       Value="28"/>
-            <Setter Property="Height"      Value="28"/>
-            <Setter Property="FontFamily"  Value="Consolas"/>
-            <Setter Property="FontSize"    Value="14"/>
-            <Setter Property="FontWeight"  Value="Bold"/>
-            <Setter Property="Foreground"  Value="#c8a84b"/>
-            <Setter Property="Background"  Value="#1e1e30"/>
-            <Setter Property="BorderBrush" Value="#44c8a84b"/>
-            <Setter Property="Cursor"      Value="Hand"/>
+            <Setter Property="Width" Value="28" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="#c8a84b" />
+            <Setter Property="Background" Value="#1e1e30" />
+            <Setter Property="BorderBrush" Value="#44c8a84b" />
+            <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="1" CornerRadius="4">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="#2a2a44"/>
+                                <Setter Property="Background" Value="#2a2a44" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Foreground" Value="#33ffffff"/>
-                                <Setter Property="BorderBrush" Value="#22ffffff"/>
+                                <Setter Property="Foreground" Value="#33ffffff" />
+                                <Setter Property="BorderBrush" Value="#22ffffff" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -47,17 +47,17 @@
         <!-- Header -->
         <TextBlock x:Name="TitleLabel" Text="⬆ LEVEL UP"
                    Foreground="#c8a84b" FontFamily="Consolas" FontSize="18" FontWeight="Bold"
-                   HorizontalAlignment="Center" Margin="0,0,0,4"/>
+                   HorizontalAlignment="Center" Margin="0,0,0,4" />
         <TextBlock x:Name="SubtitleLabel" Text="Allocate your SPECIAL points"
                    Foreground="#88ffffff" FontFamily="Consolas" FontSize="11"
-                   HorizontalAlignment="Center" Margin="0,0,0,20"/>
+                   HorizontalAlignment="Center" Margin="0,0,0,20" />
 
         <!-- Points remaining -->
         <Border Background="#1e1e30" CornerRadius="6" Padding="12,8" Margin="0,0,0,20">
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                <TextBlock Text="Points remaining: " Foreground="#88ffffff" FontFamily="Consolas" FontSize="12"/>
+                <TextBlock Text="Points remaining: " Foreground="#88ffffff" FontFamily="Consolas" FontSize="12" />
                 <TextBlock x:Name="PointsLabel" Text="1" Foreground="#c8a84b"
-                           FontFamily="Consolas" FontSize="14" FontWeight="Bold"/>
+                           FontFamily="Consolas" FontSize="14" FontWeight="Bold" />
             </StackPanel>
         </Border>
 
@@ -67,37 +67,37 @@
                 <DataTemplate>
                     <Grid Margin="0,4">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="24"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="44"/>
-                            <ColumnDefinition Width="32"/>
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="44" />
+                            <ColumnDefinition Width="32" />
                         </Grid.ColumnDefinitions>
 
                         <!-- Letter -->
                         <TextBlock Text="{Binding Letter}" Grid.Column="0"
                                    Foreground="#c8a84b" FontFamily="Consolas"
-                                   FontSize="14" FontWeight="Bold" VerticalAlignment="Center"/>
+                                   FontSize="14" FontWeight="Bold" VerticalAlignment="Center" />
 
                         <!-- Name + description -->
                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="8,0">
                             <TextBlock Text="{Binding Name}" Foreground="#ffffff"
-                                       FontFamily="Consolas" FontSize="11" FontWeight="Bold"/>
+                                       FontFamily="Consolas" FontSize="11" FontWeight="Bold" />
                             <TextBlock Text="{Binding Desc}" Foreground="#55ffffff"
-                                       FontFamily="Consolas" FontSize="9" TextWrapping="Wrap"/>
+                                       FontFamily="Consolas" FontSize="9" TextWrapping="Wrap" />
                         </StackPanel>
 
                         <!-- Current value -->
                         <TextBlock Text="{Binding Value}" Grid.Column="2"
                                    Foreground="#ffffff" FontFamily="Consolas"
                                    FontSize="16" FontWeight="Bold"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                         <!-- + button -->
                         <Button Content="+" Grid.Column="3"
                                 Style="{StaticResource StatBtn}"
                                 Tag="{Binding Letter}"
                                 Click="StatPlus_Click"
-                                IsEnabled="{Binding CanIncrease}"/>
+                                IsEnabled="{Binding CanIncrease}" />
                     </Grid>
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
@@ -109,6 +109,6 @@
                 Margin="0,24,0,0" Height="36"
                 FontFamily="Consolas" FontSize="13" FontWeight="Bold"
                 Foreground="#12121c" Background="#c8a84b"
-                BorderThickness="0" Cursor="Hand"/>
+                BorderThickness="0" Cursor="Hand" />
     </StackPanel>
 </Window>

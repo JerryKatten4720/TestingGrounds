@@ -7,38 +7,43 @@
 
     <Window.Resources>
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#aaffffff"/>
-            <Setter Property="FontFamily" Value="Consolas"/>
-            <Setter Property="FontSize"   Value="11"/>
+            <Setter Property="Foreground" Value="#aaffffff" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
         </Style>
         <Style TargetType="TextBox">
-            <Setter Property="Background"   Value="#2a2a40"/>
-            <Setter Property="Foreground"   Value="#ffffff"/>
-            <Setter Property="BorderBrush"  Value="#44ffffff"/>
-            <Setter Property="FontFamily"   Value="Consolas"/>
-            <Setter Property="Padding"      Value="4,3"/>
-            <Setter Property="CaretBrush"   Value="White"/>
+            <Setter Property="Background" Value="#2a2a40" />
+            <Setter Property="Foreground" Value="#ffffff" />
+            <Setter Property="BorderBrush" Value="#44ffffff" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="CaretBrush" Value="White" />
         </Style>
         <Style x:Key="Btn" TargetType="Button">
-            <Setter Property="Background"    Value="#2a2a40"/>
-            <Setter Property="Foreground"    Value="#ccffffff"/>
-            <Setter Property="BorderBrush"   Value="#44ffffff"/>
-            <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="FontFamily"    Value="Consolas"/>
-            <Setter Property="FontSize"      Value="11"/>
-            <Setter Property="Cursor"        Value="Hand"/>
-            <Setter Property="Padding"       Value="10,5"/>
+            <Setter Property="Background" Value="#2a2a40" />
+            <Setter Property="Foreground" Value="#ccffffff" />
+            <Setter Property="BorderBrush" Value="#44ffffff" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Consolas" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Padding" Value="10,5" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4"
                                 Padding="{TemplateBinding Padding}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
                         <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Background" Value="#3a3a58"/></Trigger>
-                            <Trigger Property="IsPressed"   Value="True"><Setter Property="Background" Value="#c8a84b"/><Setter Property="Foreground" Value="#000"/></Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="#3a3a58" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" Value="#c8a84b" />
+                                <Setter Property="Foreground" Value="#000" />
+                            </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
                 </Setter.Value>
@@ -49,52 +54,52 @@
     <StackPanel Margin="20">
 
         <TextBlock Text="NEW TILE TYPE" FontSize="14" FontWeight="Bold"
-                   Foreground="#c8a84b" Margin="0,0,0,18"/>
+                   Foreground="#c8a84b" Margin="0,0,0,18" />
 
         <!-- Name -->
-        <TextBlock Text="Name" Margin="0,0,0,4"/>
-        <TextBox x:Name="TileNameBox" Margin="0,0,0,14"/>
+        <TextBlock Text="Name" Margin="0,0,0,4" />
+        <TextBox x:Name="TileNameBox" Margin="0,0,0,14" />
 
         <!-- Top color row -->
-        <TextBlock Text="Top face color" Margin="0,0,0,4"/>
+        <TextBlock Text="Top face color" Margin="0,0,0,4" />
         <DockPanel Margin="0,0,0,12">
             <Rectangle x:Name="TopColorSwatch" Width="26" Height="26" Fill="#388E3C"
                        DockPanel.Dock="Right" Margin="6,0,0,0" Cursor="Hand"
-                       MouseLeftButtonDown="TopSwatch_Click"/>
-            <TextBox x:Name="TopColorBox" Text="#388E3C" TextChanged="TopColor_Changed"/>
+                       MouseLeftButtonDown="TopSwatch_Click" />
+            <TextBox x:Name="TopColorBox" Text="#388E3C" TextChanged="TopColor_Changed" />
         </DockPanel>
 
         <!-- Left color row -->
-        <TextBlock Text="Left face color" Margin="0,0,0,4"/>
+        <TextBlock Text="Left face color" Margin="0,0,0,4" />
         <DockPanel Margin="0,0,0,12">
             <Rectangle x:Name="LeftColorSwatch" Width="26" Height="26" Fill="#1B5E20"
                        DockPanel.Dock="Right" Margin="6,0,0,0" Cursor="Hand"
-                       MouseLeftButtonDown="LeftSwatch_Click"/>
-            <TextBox x:Name="LeftColorBox" Text="#1B5E20" TextChanged="LeftColor_Changed"/>
+                       MouseLeftButtonDown="LeftSwatch_Click" />
+            <TextBox x:Name="LeftColorBox" Text="#1B5E20" TextChanged="LeftColor_Changed" />
         </DockPanel>
 
         <!-- Right color row -->
-        <TextBlock Text="Right face color" Margin="0,0,0,4"/>
+        <TextBlock Text="Right face color" Margin="0,0,0,4" />
         <DockPanel Margin="0,0,0,16">
             <Rectangle x:Name="RightColorSwatch" Width="26" Height="26" Fill="#0A3D0A"
                        DockPanel.Dock="Right" Margin="6,0,0,0" Cursor="Hand"
-                       MouseLeftButtonDown="RightSwatch_Click"/>
-            <TextBox x:Name="RightColorBox" Text="#0A3D0A" TextChanged="RightColor_Changed"/>
+                       MouseLeftButtonDown="RightSwatch_Click" />
+            <TextBox x:Name="RightColorBox" Text="#0A3D0A" TextChanged="RightColor_Changed" />
         </DockPanel>
 
         <!-- Preview (explicit Width so DrawPreview never sees NaN) -->
-        <TextBlock Text="Preview" Margin="0,0,0,6"/>
+        <TextBlock Text="Preview" Margin="0,0,0,6" />
         <Canvas x:Name="PreviewCanvas" Width="310" Height="70"
-                Background="#1e1e30" Margin="0,0,0,16"/>
+                Background="#1e1e30" Margin="0,0,0,16" />
 
         <!-- Error -->
         <TextBlock x:Name="ErrorLabel" Foreground="#ff6666" FontSize="10"
-                   Visibility="Collapsed" Margin="0,0,0,8" TextWrapping="Wrap"/>
+                   Visibility="Collapsed" Margin="0,0,0,8" TextWrapping="Wrap" />
 
         <!-- Buttons -->
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Cancel"   Click="Cancel_Click"  Style="{StaticResource Btn}" Width="80" Margin="0,0,8,0"/>
-            <Button Content="Add Tile" Click="AddTile_Click" Style="{StaticResource Btn}" Width="90"/>
+            <Button Content="Cancel" Click="Cancel_Click" Style="{StaticResource Btn}" Width="80" Margin="0,0,8,0" />
+            <Button Content="Add Tile" Click="AddTile_Click" Style="{StaticResource Btn}" Width="90" />
         </StackPanel>
 
     </StackPanel>
