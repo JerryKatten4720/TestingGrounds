@@ -23,3 +23,7 @@ C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-w
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\AddTileDialog.g.cs
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\NewMapDialog.g.cs
 C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\Testinggrounds.sourcelink.json
+C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\UI\PortraitOverlay.baml
+C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\UI\SpecialAllocationDialog.baml
+C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\UI\PortraitOverlay.g.cs
+C:\Users\antoi\Documents\GitHub\Testinggrounds\Testinggrounds\obj\Debug\net9.0-windows\UI\SpecialAllocationDialog.g.cs

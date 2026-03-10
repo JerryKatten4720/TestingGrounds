@@ -1,7 +1,7 @@
 <Window x:Class="IsometricWPF.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Isometric World Builder" Height="760" Width="1240"
+        Title="Isometric World Builder" Height="780" Width="1380"
         Background="#12121c"
         MouseRightButtonDown="Viewport_MouseRightButtonDown"
         MouseRightButtonUp="Viewport_MouseRightButtonUp"
@@ -14,59 +14,102 @@
 
     <Grid>
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="190"/>
+            <ColumnDefinition Width="200"/>
             <ColumnDefinition Width="*"/>
-            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="250"/>
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
-            <RowDefinition Height="44"/>
-            <RowDefinition Height="*"/>
+            <RowDefinition Height="44"/>   <!-- toolbar -->
+            <RowDefinition Height="Auto"/> <!-- world HUD bar (Phase 2) -->
+            <RowDefinition Height="*"/>    <!-- main content -->
+            <RowDefinition Height="Auto"/> <!-- notification bar -->
         </Grid.RowDefinitions>
 
-        <!-- ══ TOOLBAR ════════════════════════════════════════════════ -->
+        <!-- ══ TOOLBAR ══════════════════════════════════════════════════ -->
         <Border Grid.ColumnSpan="3" Background="#1e1e30"
                 BorderBrush="#33ffffff" BorderThickness="0,0,0,1">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+              <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0">
 
                 <TextBlock Text="⬡  WORLD BUILDER" Foreground="#c8a84b"
                            FontFamily="Consolas" FontSize="14" FontWeight="Bold"
-                           VerticalAlignment="Center" Margin="0,0,20,0"/>
+                           VerticalAlignment="Center" Margin="0,0,16,0"/>
 
+                <!-- File -->
                 <Button Content="📄 New"    Click="File_New"    Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
                 <Button Content="📂 Import" Click="File_Import" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
-                <Button Content="💾 Export" Click="File_Export" Style="{StaticResource ToolbarBtn}" Margin="0,0,16,0"/>
+                <Button Content="💾 Export" Click="File_Export" Style="{StaticResource ToolbarBtn}" Margin="0,0,10,0"/>
 
-                <Separator Style="{StaticResource ToolbarSep}"/>
-
+                <!-- Presets -->
                 <Button Content="🗺 Island"   Click="Preset_Island"    Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
-                <Button Content="☢ Wasteland" Click="Preset_Wasteland" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
-                <Button Content="⬜ Clear"     Click="Preset_Clear"     Style="{StaticResource ToolbarBtn}" Margin="0,0,16,0"/>
+                <Button Content="☢ Waste"    Click="Preset_Wasteland" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button Content="⬜ Clear"    Click="Preset_Clear"     Style="{StaticResource ToolbarBtn}" Margin="0,0,10,0"/>
 
-                <Separator Style="{StaticResource ToolbarSep}"/>
-
+                <!-- View toggles -->
                 <ToggleButton x:Name="BtnGrid"    Content="Grid [G]"    IsChecked="True" Click="Toggle_Grid"    Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
-                <ToggleButton x:Name="BtnHeights" Content="Heights [H]" IsChecked="True" Click="Toggle_Heights" Style="{StaticResource ToolbarToggle}" Margin="0,0,16,0"/>
+                <ToggleButton x:Name="BtnHeights" Content="Heights [H]" IsChecked="True" Click="Toggle_Heights" Style="{StaticResource ToolbarToggle}" Margin="0,0,10,0"/>
 
-                <Separator Style="{StaticResource ToolbarSep}"/>
-
+                <!-- Editor / Combat -->
                 <ToggleButton x:Name="BtnEditorMode" Content="✏ Editor [E]" IsChecked="True"
-                              Click="Toggle_EditorMode" Style="{StaticResource ToolbarToggle}" Margin="0,0,16,0"/>
+                              Click="Toggle_EditorMode" Style="{StaticResource ToolbarToggle}" Margin="0,0,8,0"/>
+                <Button x:Name="BtnCombat"  Content="⚔ Start Combat" Click="BtnCombat_Click" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <Button x:Name="BtnEndTurn" Content="⏭ End Turn [T]" Click="BtnEndTurn_Click" Style="{StaticResource ToolbarBtn}" Visibility="Collapsed" Margin="0,0,4,0"/>
+                <Button x:Name="BtnHarvest" Content="🌿 Harvest (2PA)" Click="BtnHarvest_Click" Style="{StaticResource ToolbarBtn}" Visibility="Collapsed" Margin="0,0,10,0"/>
+                <ToggleButton x:Name="BtnHpBarsGlobal" Content="❤ HP Bars" IsChecked="True" Click="BtnHpBarsGlobal_Click" Style="{StaticResource ToolbarToggle}" Margin="0,0,10,0"/>
 
-                <Separator Style="{StaticResource ToolbarSep}"/>
+                <!-- Phase 2: World systems -->
+                <ToggleButton x:Name="BtnFog"      Content="🌫 Fog"        Click="BtnFog_Click"      Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
+                <Button x:Name="BtnFogReveal"       Content="👁 Reveal"     Click="BtnFogReveal_Click" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <ToggleButton x:Name="BtnDayNight"  Content="☀/🌙 Cycle"   Click="BtnDayNight_Click"  Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
+                <Button x:Name="BtnToggleNight"     Content="🌙 Now"        Click="BtnToggleNight_Click" Style="{StaticResource ToolbarBtn}" Margin="0,0,4,0"/>
+                <ToggleButton x:Name="BtnWeather"   Content="🌤 Weather"    Click="BtnWeather_Click"   Style="{StaticResource ToolbarToggle}" Margin="0,0,10,0"/>
 
-                <Button Content="↺ Reset View [R]" Click="Camera_Reset" Style="{StaticResource ToolbarBtn}"/>
+                <!-- Phase 2: World paint -->
+                <ToggleButton x:Name="BtnPaintRad"      Content="☢ Paint Rad"      Click="BtnPaintRad_Click"      Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
+                <ToggleButton x:Name="BtnPaintResource" Content="🌿 Paint Resource" Click="BtnPaintResource_Click"  Style="{StaticResource ToolbarToggle}" Margin="0,0,4,0"/>
+                <ComboBox x:Name="ResourceTypePicker" Width="90" FontFamily="Consolas" FontSize="10"
+                          Background="#2a2a40" Foreground="#ffffff" BorderBrush="#44ffffff"
+                          SelectedIndex="0" Margin="0,0,10,0"
+                          SelectionChanged="ResourceTypePicker_SelectionChanged">
+                    <ComboBoxItem>⚙ Scrap</ComboBoxItem>
+                    <ComboBoxItem>🌿 Food</ComboBoxItem>
+                    <ComboBoxItem>💧 Water</ComboBoxItem>
+                    <ComboBoxItem>🥤 NukaCola</ComboBoxItem>
+                    <ComboBoxItem>💰 Caps</ComboBoxItem>
+                </ComboBox>
+
+                <Button Content="↺ Reset [R]" Click="Camera_Reset" Style="{StaticResource ToolbarBtn}" Margin="0,0,8,0"/>
 
                 <TextBlock x:Name="CameraLabel" Foreground="#66ffffff" FontFamily="Consolas" FontSize="10"
-                           VerticalAlignment="Center" Margin="16,0,0,0"/>
-
+                           VerticalAlignment="Center" Margin="0,0,12,0"/>
                 <TextBlock x:Name="EditorModeLabel" Text="  ✏ EDITOR"
                            Foreground="#88ff88" FontFamily="Consolas" FontSize="10" FontWeight="Bold"
-                           VerticalAlignment="Center" Margin="12,0,0,0"/>
-            </StackPanel>
+                           VerticalAlignment="Center" Margin="0,0,12,0"/>
+
+                <!-- Combat HUD inline -->
+                <Border x:Name="CombatHud" Visibility="Collapsed"
+                        Background="#22ff4444" BorderBrush="#66ff4444" BorderThickness="1"
+                        CornerRadius="4" Padding="8,3">
+                    <TextBlock x:Name="CombatHudLabel" Foreground="#ffaaaa"
+                               FontFamily="Consolas" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
+                </Border>
+
+              </StackPanel>
+            </ScrollViewer>
         </Border>
 
-        <!-- ══ LEFT: PALETTE ══════════════════════════════════════════ -->
-        <Border x:Name="LeftSidePanel" Grid.Row="1" Grid.Column="0"
+        <!-- ══ WORLD HUD BAR (Phase 2) ══════════════════════════════════ -->
+        <Border x:Name="WorldHudBar" Grid.Row="1" Grid.ColumnSpan="3"
+                Visibility="Collapsed"
+                Background="#1a1a2e" BorderBrush="#33c8a84b" BorderThickness="0,0,0,1"
+                Padding="16,4">
+            <TextBlock x:Name="WorldHudLabel" Foreground="#c8a84b"
+                       FontFamily="Consolas" FontSize="11" FontWeight="Bold"
+                       VerticalAlignment="Center"/>
+        </Border>
+
+        <!-- ══ LEFT: PALETTE ══════════════════════════════════════════════ -->
+        <Border x:Name="LeftSidePanel" Grid.Row="2" Grid.Column="0"
                 Background="#16162a" BorderBrush="#33ffffff" BorderThickness="0,0,1,0">
             <DockPanel>
                 <TextBlock DockPanel.Dock="Top" Text="PALETTE" Foreground="#c8a84b"
@@ -74,8 +117,8 @@
 
                 <DockPanel DockPanel.Dock="Top" Margin="12,0,12,8">
                     <TextBlock Text="h=" Foreground="#66ffffff" FontFamily="Consolas" FontSize="11" VerticalAlignment="Center"/>
-                    <TextBlock x:Name="HeightBrushLabel" Text="0" Foreground="#ffffff" FontFamily="Consolas" FontSize="12"
-                               VerticalAlignment="Center" Margin="2,0,6,0"/>
+                    <TextBlock x:Name="HeightBrushLabel" Text="0" Foreground="#ffffff"
+                               FontFamily="Consolas" FontSize="12" VerticalAlignment="Center" Margin="2,0,6,0"/>
                     <Button Content="+" Click="HeightBrush_Inc" Style="{StaticResource SmallBtn}" Width="24" DockPanel.Dock="Right" Margin="2,0,0,0"/>
                     <Button Content="−" Click="HeightBrush_Dec" Style="{StaticResource SmallBtn}" Width="24" DockPanel.Dock="Right"/>
                 </DockPanel>
@@ -83,15 +126,28 @@
                 <Button DockPanel.Dock="Top" Content="＋ Add Custom Tile" Click="Palette_AddCustomTile"
                         Style="{StaticResource ToolbarBtn}" Margin="8,0,8,10" HorizontalAlignment="Stretch"/>
 
-                <!-- Dweller spawn section -->
+                <!-- Spawn dweller -->
                 <Border DockPanel.Dock="Top" Background="#1a1a2e" BorderBrush="#33c8a84b"
                         BorderThickness="1" CornerRadius="4" Margin="8,0,8,8" Padding="8,6">
                     <StackPanel>
                         <TextBlock Text="SPAWN DWELLER" Foreground="#c8a84b" FontFamily="Consolas"
-                                   FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                                   FontSize="10" FontWeight="Bold" Margin="0,0,0,4"/>
                         <ComboBox x:Name="DwellerPicker" FontFamily="Consolas" FontSize="11"
-                                  Background="#2a2a40" Foreground="#ffffff" BorderBrush="#44ffffff"
-                                  Margin="0,0,0,6"/>
+                                  Background="#2a2a40" Foreground="#ffffff" BorderBrush="#44ffffff" Margin="0,0,0,6"/>
+                        <DockPanel Margin="0,0,0,6">
+                            <TextBlock Text="Team " Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" VerticalAlignment="Center"/>
+                            <ComboBox x:Name="TeamPicker" FontFamily="Consolas" FontSize="11"
+                                      Background="#2a2a40" Foreground="#ffffff" BorderBrush="#44ffffff" SelectedIndex="0">
+                                <ComboBoxItem>1</ComboBoxItem>
+                                <ComboBoxItem>2</ComboBoxItem>
+                                <ComboBoxItem>3</ComboBoxItem>
+                                <ComboBoxItem>4</ComboBoxItem>
+                                <ComboBoxItem>5</ComboBoxItem>
+                                <ComboBoxItem>6</ComboBoxItem>
+                                <ComboBoxItem>7</ComboBoxItem>
+                                <ComboBoxItem>8</ComboBoxItem>
+                            </ComboBox>
+                        </DockPanel>
                         <Button Content="Place on map [click tile]" Click="SpawnDweller_Click"
                                 Style="{StaticResource SmallBtn}" HorizontalAlignment="Stretch"/>
                     </StackPanel>
@@ -103,8 +159,8 @@
             </DockPanel>
         </Border>
 
-        <!-- ══ CENTER: VIEWPORT ═══════════════════════════════════════ -->
-        <Grid Grid.Row="1" Grid.Column="1" x:Name="ViewportGrid" ClipToBounds="True">
+        <!-- ══ CENTER: VIEWPORT ════════════════════════════════════════ -->
+        <Grid Grid.Row="2" Grid.Column="1" x:Name="ViewportGrid" ClipToBounds="True">
             <Grid.Background>
                 <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                     <GradientStop Color="#1e1e30" Offset="0"/>
@@ -112,7 +168,6 @@
                 </LinearGradientBrush>
             </Grid.Background>
 
-            <!-- The TransformCanvas hosts everything that pans/zooms -->
             <Canvas x:Name="TransformCanvas">
                 <Canvas.RenderTransform>
                     <TransformGroup>
@@ -121,27 +176,16 @@
                     </TransformGroup>
                 </Canvas.RenderTransform>
 
-                <!-- DrawingVisualHost for tiles (set from code-behind) -->
                 <Canvas x:Name="TileHostContainer"/>
-
-                <!-- Dweller sprite canvas (above tiles) -->
                 <Canvas x:Name="DwellerCanvas"/>
 
-                <!-- Cursor overlays (always on top) -->
-                <Polygon x:Name="HoverCursor" Stroke="#88ffffff" StrokeThickness="1.5"
-                         Fill="#18ffffff" Visibility="Hidden" IsHitTestVisible="False"
-                         Panel.ZIndex="9000"/>
-                <Polygon x:Name="SelectionCursor" Stroke="#ffd700" StrokeThickness="2.5"
-                         Fill="#44ffd700" Visibility="Hidden" IsHitTestVisible="False"
-                         Panel.ZIndex="9001"/>
-
-                <!-- Move-target indicator when a dweller is selected -->
-                <Polygon x:Name="MoveCursor" Stroke="#88ff88" StrokeThickness="1.5"
-                         Fill="#2288ff88" Visibility="Hidden" IsHitTestVisible="False"
-                         Panel.ZIndex="8999"/>
+                <Polygon x:Name="HoverCursor"     Stroke="#88ffffff" StrokeThickness="1.5"
+                         Fill="#18ffffff" Visibility="Hidden" IsHitTestVisible="False" Panel.ZIndex="9000"/>
+                <Polygon x:Name="SelectionCursor" Stroke="#ffd700"   StrokeThickness="2.5"
+                         Fill="#44ffd700" Visibility="Hidden" IsHitTestVisible="False" Panel.ZIndex="9001"/>
             </Canvas>
 
-            <!-- Mini-map overlay -->
+            <!-- Minimap -->
             <Border HorizontalAlignment="Right" VerticalAlignment="Bottom"
                     Margin="0,0,10,10" Width="160" Height="110"
                     Background="#cc0d0d1a" CornerRadius="6" BorderBrush="#44c8a84b" BorderThickness="1">
@@ -156,8 +200,8 @@
             </Border>
         </Grid>
 
-        <!-- ══ RIGHT: SIDE PANEL (INSPECTOR & ASSETS) ════════════════ -->
-        <Border x:Name="RightSidePanel" Grid.Row="1" Grid.Column="2"
+        <!-- ══ RIGHT: INSPECTOR & ASSETS ═════════════════════════════ -->
+        <Border x:Name="RightSidePanel" Grid.Row="2" Grid.Column="2"
                 Background="#16162a" BorderBrush="#33ffffff" BorderThickness="1,0,0,0">
             <TabControl Background="Transparent" BorderThickness="0" Padding="0">
                 <TabControl.Resources>
@@ -165,21 +209,21 @@
                         <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="Foreground" Value="#66ffffff"/>
                         <Setter Property="FontFamily" Value="Consolas"/>
-                        <Setter Property="FontSize" Value="10"/>
-                        <Setter Property="Padding" Value="10,6"/>
+                        <Setter Property="FontSize"   Value="10"/>
+                        <Setter Property="Padding"    Value="10,6"/>
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="TabItem">
-                                    <Border x:Name="Border" Background="{TemplateBinding Background}" 
+                                    <Border x:Name="Border" Background="{TemplateBinding Background}"
                                             BorderBrush="#33ffffff" BorderThickness="0,0,0,1">
                                         <ContentPresenter ContentSource="Header" Margin="{TemplateBinding Padding}"/>
                                     </Border>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
-                                            <Setter TargetName="Border" Property="Background" Value="#1e1e30"/>
-                                            <Setter Property="Foreground" Value="#c8a84b"/>
-                                            <Setter TargetName="Border" Property="BorderBrush" Value="#c8a84b"/>
-                                            <Setter TargetName="Border" Property="BorderThickness" Value="0,0,0,2"/>
+                                            <Setter TargetName="Border" Property="Background"      Value="#1e1e30"/>
+                                            <Setter Property="Foreground"                           Value="#c8a84b"/>
+                                            <Setter TargetName="Border" Property="BorderBrush"     Value="#c8a84b"/>
+                                            <Setter TargetName="Border" Property="BorderThickness"  Value="0,0,0,2"/>
                                         </Trigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
@@ -188,10 +232,10 @@
                     </Style>
                 </TabControl.Resources>
 
+                <!-- INSPECTOR tab -->
                 <TabItem Header="INSPECTOR">
                     <ScrollViewer VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="14">
-
                             <TextBlock Text="INSPECTOR" Foreground="#c8a84b" FontFamily="Consolas"
                                        FontSize="11" FontWeight="Bold" Margin="0,8,0,12"/>
 
@@ -200,13 +244,11 @@
                                     <TextBlock x:Name="InspectorCoords" Text="No tile selected"
                                                Foreground="#aaffffff" FontFamily="Consolas" FontSize="11" TextWrapping="Wrap"/>
                                     <TextBlock x:Name="InspectorType" Foreground="#c8a84b"
-                                               FontFamily="Consolas" FontSize="13" FontWeight="Bold" Margin="0,4,0,0"/>
+                                               FontFamily="Consolas" FontSize="13" FontWeight="Bold" Margin="0,4,0,0" TextWrapping="Wrap"/>
                                 </StackPanel>
                             </Border>
 
-                            <!-- Tile height -->
-                            <TextBlock Text="HEIGHT" Foreground="#66ffffff" FontFamily="Consolas"
-                                       FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <TextBlock Text="HEIGHT" Foreground="#66ffffff" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
                                 <Button Content="−" Click="Inspector_HeightDec" Style="{StaticResource SmallBtn}" Width="32"/>
                                 <TextBlock x:Name="InspectorHeight" Text=" 0 " Foreground="#ffffff"
@@ -214,9 +256,7 @@
                                 <Button Content="+" Click="Inspector_HeightInc" Style="{StaticResource SmallBtn}" Width="32"/>
                             </StackPanel>
 
-                            <!-- Texture scope -->
-                            <TextBlock Text="TEXTURES" Foreground="#66ffffff" FontFamily="Consolas"
-                                       FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
+                            <TextBlock Text="TEXTURES" Foreground="#66ffffff" FontFamily="Consolas" FontSize="10" FontWeight="Bold" Margin="0,0,0,6"/>
                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                 <ToggleButton x:Name="BtnScopeType" Content="All of type" IsChecked="True"
                                               Click="TextureScope_Changed" Style="{StaticResource ToolbarToggle}" Width="90" Margin="0,0,4,0"/>
@@ -224,21 +264,20 @@
                                               Click="TextureScope_Changed" Style="{StaticResource ToolbarToggle}" Width="80"/>
                             </StackPanel>
                             <TextBlock x:Name="TextureScopeHint" Text="Applies to all tiles of this type"
-                                       Foreground="#55ffffff" FontFamily="Consolas" FontSize="9"
-                                       TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                       Foreground="#55ffffff" FontFamily="Consolas" FontSize="9" TextWrapping="Wrap" Margin="0,0,0,12"/>
 
-                            <TextBlock Text="Top"   Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
+                            <TextBlock Text="Top"  Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
                             <DockPanel Margin="0,0,0,8">
-                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_TopBrowse"   Style="{StaticResource SmallBtn}" Width="28"/>
-                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_TopClear"    Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
+                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_TopBrowse" Style="{StaticResource SmallBtn}" Width="28"/>
+                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_TopClear"  Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
                                 <TextBlock x:Name="TextureTopLabel" Text="(default)" Foreground="#66ffffff"
                                            FontFamily="Consolas" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                             </DockPanel>
 
                             <TextBlock Text="Left"  Foreground="#88ffffff" FontFamily="Consolas" FontSize="10" Margin="0,0,0,4"/>
                             <DockPanel Margin="0,0,0,8">
-                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_LeftBrowse"  Style="{StaticResource SmallBtn}" Width="28"/>
-                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_LeftClear"   Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
+                                <Button DockPanel.Dock="Right" Content="…" Click="Texture_LeftBrowse" Style="{StaticResource SmallBtn}" Width="28"/>
+                                <Button DockPanel.Dock="Right" Content="✕" Click="Texture_LeftClear"  Style="{StaticResource SmallBtn}" Width="24" Margin="0,0,4,0"/>
                                 <TextBlock x:Name="TextureLeftLabel" Text="(default)" Foreground="#66ffffff"
                                            FontFamily="Consolas" FontSize="9" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                             </DockPanel>
@@ -254,39 +293,125 @@
                             <Button Content="Clear all overrides" Click="Texture_ClearAllOverrides"
                                     Style="{StaticResource ToolbarBtn}" HorizontalAlignment="Stretch" Margin="0,0,0,18"/>
 
-                            <!-- Dweller inspector section -->
+                            <!-- Dweller inspector (Phase 3 expanded) -->
                             <Border x:Name="DwellerInspectorPanel" Visibility="Collapsed"
                                     Background="#1a1a2e" BorderBrush="#33c8a84b" BorderThickness="1"
-                                    CornerRadius="4" Padding="10,8" Margin="0,0,0,0">
+                                    CornerRadius="4" Padding="10,8">
                                 <StackPanel>
-                                    <TextBlock Text="DWELLER" Foreground="#c8a84b" FontFamily="Consolas"
-                                               FontSize="11" FontWeight="Bold" Margin="0,0,0,8"/>
-                                    <TextBlock x:Name="DwellerName"    Foreground="#ffffff" FontFamily="Consolas" FontSize="13" FontWeight="Bold"/>
-                                    <TextBlock x:Name="DwellerRarity"  Foreground="#aaffffff" FontFamily="Consolas" FontSize="10" Margin="0,2,0,6"/>
-                                    <TextBlock x:Name="DwellerSpecial" Foreground="#aaffffff" FontFamily="Consolas" FontSize="10" LineHeight="16"/>
+                                    <!-- Header row: portrait button + name -->
+                                    <DockPanel Margin="0,0,0,6">
+                                        <Button x:Name="BtnPortrait" DockPanel.Dock="Left"
+                                                Width="44" Height="44" Margin="0,0,8,0"
+                                                Click="BtnPortrait_Click" ToolTip="Click to zoom portrait"
+                                                Background="#2a2a40" BorderBrush="#44c8a84b" BorderThickness="1"
+                                                Cursor="Hand" Padding="0">
+                                            <Image x:Name="PortraitThumb" Stretch="UniformToFill"
+                                                   RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                                        </Button>
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock x:Name="DwellerName"   Foreground="#ffffff"   FontFamily="Consolas" FontSize="13" FontWeight="Bold"/>
+                                            <TextBlock x:Name="DwellerRarity" Foreground="#aaffffff" FontFamily="Consolas" FontSize="10" Margin="0,2,0,0"/>
+                                        </StackPanel>
+                                    </DockPanel>
+
+                                    <!-- SPECIAL + bars -->
+                                    <TextBlock x:Name="DwellerSpecial" Foreground="#aaffffff"
+                                               FontFamily="Consolas" FontSize="10" LineHeight="18" Margin="0,0,0,8"/>
+
+                                    <!-- Level-up button (shown only when points pending) -->
+                                    <Button x:Name="BtnLevelUp" Content="⬆ Spend SPECIAL Points!"
+                                            Click="BtnLevelUp_Click" Visibility="Collapsed"
+                                            Style="{StaticResource SmallBtn}"
+                                            Background="#33c8a84b" Foreground="#c8a84b"
+                                            HorizontalAlignment="Stretch" Margin="0,0,0,8"/>
+
+                                    <!-- HP bar toggle -->
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                        <ToggleButton x:Name="BtnToggleHpBar" Content="HP Bar"
+                                                      IsChecked="True" Click="BtnToggleHpBar_Click"
+                                                      Style="{StaticResource ToolbarToggle}" FontSize="9"
+                                                      Width="60" Height="22" Margin="0,0,6,0"/>
+                                        <Button Content="Use Item" Click="BtnUseItem_Click"
+                                                Style="{StaticResource SmallBtn}" Height="22" Padding="6,0"/>
+                                    </StackPanel>
+
+                                    <!-- EQUIPMENT (4 slots) -->
+                                    <TextBlock Text="EQUIPMENT" Foreground="#66ffffff"
+                                               FontFamily="Consolas" FontSize="9" FontWeight="Bold" Margin="0,0,0,4"/>
+                                    <Border Background="#12121c" CornerRadius="4" Padding="6,4" Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="Auto"/>
+                                            </Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+
+                                            <TextBlock x:Name="SlotMelee"  Grid.Row="0" Grid.Column="0" Foreground="#aaffffff" FontFamily="Consolas" FontSize="9" Margin="0,1"/>
+                                            <Button Grid.Row="0" Grid.Column="1" Content="⚙" Click="BtnEquipMelee_Click"  Style="{StaticResource SmallBtn}" Width="22" Height="18" FontSize="9" ToolTip="Set melee weapon"/>
+
+                                            <TextBlock x:Name="SlotRanged" Grid.Row="1" Grid.Column="0" Foreground="#aaffffff" FontFamily="Consolas" FontSize="9" Margin="0,1"/>
+                                            <Button Grid.Row="1" Grid.Column="1" Content="⚙" Click="BtnEquipRanged_Click" Style="{StaticResource SmallBtn}" Width="22" Height="18" FontSize="9" ToolTip="Set ranged weapon"/>
+
+                                            <TextBlock x:Name="SlotArmor"  Grid.Row="2" Grid.Column="0" Foreground="#aaffffff" FontFamily="Consolas" FontSize="9" Margin="0,1"/>
+                                            <Button Grid.Row="2" Grid.Column="1" Content="⚙" Click="BtnEquipArmor_Click"  Style="{StaticResource SmallBtn}" Width="22" Height="18" FontSize="9" ToolTip="Set armor"/>
+
+                                            <TextBlock x:Name="SlotPet"    Grid.Row="3" Grid.Column="0" Foreground="#aaffffff" FontFamily="Consolas" FontSize="9" Margin="0,1"/>
+                                            <Button Grid.Row="3" Grid.Column="1" Content="⚙" Click="BtnEquipPet_Click"    Style="{StaticResource SmallBtn}" Width="22" Height="18" FontSize="9" ToolTip="Set pet"/>
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- INVENTORY -->
+                                    <DockPanel Margin="0,0,0,4">
+                                        <TextBlock Text="INVENTORY" Foreground="#66ffffff"
+                                                   FontFamily="Consolas" FontSize="9" FontWeight="Bold"
+                                                   VerticalAlignment="Center"/>
+                                        <Button Content="＋" DockPanel.Dock="Right" Click="BtnAddItem_Click"
+                                                Style="{StaticResource SmallBtn}" Width="22" Height="18" FontSize="11"
+                                                ToolTip="Add item to inventory"/>
+                                    </DockPanel>
+                                    <ListBox x:Name="InventoryList" MaxHeight="90"
+                                             Background="#12121c" BorderBrush="#22ffffff" BorderThickness="1"
+                                             Foreground="#aaffffff" FontFamily="Consolas" FontSize="9"
+                                             Margin="0,0,0,8" SelectionChanged="InventoryList_SelectionChanged">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding}" Foreground="#aaffffff" FontFamily="Consolas" FontSize="9"/>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+
+                                    <!-- Backstory -->
+                                    <TextBlock x:Name="DwellerBackstory" Foreground="#667799"
+                                               FontFamily="Consolas" FontSize="9"
+                                               TextWrapping="Wrap" Margin="0,0,0,8"
+                                               FontStyle="Italic" Visibility="Collapsed"/>
+
                                     <Button Content="Remove from map" Click="DwellerRemove_Click"
-                                            Style="{StaticResource SmallBtn}" Margin="0,10,0,0" HorizontalAlignment="Left"/>
+                                            Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
                                 </StackPanel>
                             </Border>
-
                         </StackPanel>
                     </ScrollViewer>
                 </TabItem>
 
+                <!-- ASSETS tab -->
                 <TabItem Header="ASSETS">
                     <DockPanel Margin="14">
-                        <TextBlock DockPanel.Dock="Top" Text="TEXTURE ASSETS" Foreground="#c8a84b" 
+                        <TextBlock DockPanel.Dock="Top" Text="TEXTURE ASSETS" Foreground="#c8a84b"
                                    FontFamily="Consolas" FontSize="11" FontWeight="Bold" Margin="0,8,0,12"/>
-                        
-                        <Button DockPanel.Dock="Bottom" Content="＋ Add Texture File" Click="Asset_Add_Click" 
+                        <Button DockPanel.Dock="Bottom" Content="＋ Add Texture File" Click="Asset_Add_Click"
                                 Style="{StaticResource ToolbarBtn}" HorizontalAlignment="Stretch" Margin="0,10,0,0"/>
-                        
-                        <ListBox x:Name="AssetListBox" Background="#1a1a2e" BorderBrush="#33ffffff" 
+                        <ListBox x:Name="AssetListBox" Background="#1a1a2e" BorderBrush="#33ffffff"
                                  Foreground="#ffffff" FontFamily="Consolas" FontSize="11" BorderThickness="1">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <DockPanel LastChildFill="True" Margin="2">
-                                        <Button DockPanel.Dock="Right" Content="✕" Click="Asset_Remove_Click" 
+                                        <Button DockPanel.Dock="Right" Content="✕" Click="Asset_Remove_Click"
                                                 Tag="{Binding}" Style="{StaticResource SmallBtn}" Width="24"/>
                                         <TextBlock Text="{Binding}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                     </DockPanel>
@@ -296,6 +421,15 @@
                     </DockPanel>
                 </TabItem>
             </TabControl>
+        </Border>
+
+        <!-- ══ NOTIFICATION BAR ══════════════════════════════════════ -->
+        <Border x:Name="NotificationBar" Grid.Row="3" Grid.ColumnSpan="3"
+                Visibility="Collapsed"
+                Background="#22ffffff" BorderBrush="#33ffffff" BorderThickness="0,1,0,0"
+                Padding="16,6">
+            <TextBlock x:Name="NotificationLabel" Foreground="White"
+                       FontFamily="Consolas" FontSize="11" FontWeight="Bold" VerticalAlignment="Center"/>
         </Border>
 
     </Grid>
